@@ -1,188 +1,250 @@
-# cross
+# SilentPay
 
-A Midnight Network smart contract scaffolded with create-mn-app.
+[![CI](https://github.com/janvi100104/SilentPay/actions/workflows/ci.yml/badge.svg)](https://github.com/janvi100104/SilentPay/actions/workflows/ci.yml)
 
-## Quick start
+SilentPay is a privacy-first payroll application built with Next.js and Midnight. It lets an employer manage employees, create payroll, and let eligible employees claim payments without publishing individual payment amounts on-chain.
 
-Requirements: Node 22, Docker (with Compose v2), and the Compact compiler at the version pinned in `.compact-version` at the create-mn-app repo root (the version this project was scaffolded against).
+- Repository: [github.com/janvi100104/SilentPay](https://github.com/janvi100104/SilentPay)
+- Live demo: **Not available yet**
+- Network: Midnight local devnet by default, with Preview and Preprod configuration
+
+## Product idea
+
+SilentPay addresses the problem of transparent blockchain payroll: public payment records can expose salaries, bonuses, and contractor compensation forever. The product uses Midnight private witnesses and zero-knowledge proofs to make payroll execution verifiable while keeping each employee's allocation confidential. The longer-term product can support salaries, bonuses, contractor payments, revenue shares, vesting, and DAO contributor rewards with privacy as the default.
+
+The full product proposal is in [`docs/01-product-requirements.md`](docs/01-product-requirements.md). It is currently a draft and still needs to be submitted for approval.
+
+## Current functionality
+
+- Next.js dashboard for companies, employees, payroll, claims, and history
+- PostgreSQL-backed application metadata through Prisma
+- Compact payroll contract with `createPayroll` and `claimPayment` circuits
+- Local Midnight devnet using Docker Compose
+- Midnight Preview and Preprod network configuration
+- Jest coverage for contract structure, validation, employee, payroll, and claim flows
+
+## UI screenshots
+
+The current application UI includes the following views:
+
+| Landing page | Dashboard |
+| --- | --- |
+| ![SilentPay landing page](<docs/screenshots/Screenshot%202026-08-01%20001109.png>) | ![SilentPay dashboard](<docs/screenshots/Screenshot%202026-08-01%20001133.png>) |
+
+| Employees | Payroll |
+| --- | --- |
+| ![Employee management](<docs/screenshots/Screenshot%202026-08-01%20001226.png>) | ![Payroll management](<docs/screenshots/Screenshot%202026-08-01%20001204.png>) |
+
+| Claims | History |
+| --- | --- |
+| ![Payment claims](<docs/screenshots/Screenshot%202026-08-01%20001149.png>) | ![Payroll and claim history](<docs/screenshots/Screenshot%202026-08-01%20001041.png>) |
+
+## Privacy model
+
+SilentPay separates public ledger state from private witness data. The privacy guarantee described here applies to the Midnight contract; application metadata in PostgreSQL must still be protected with normal database and application access controls.
+
+### Public state
+
+The contract deliberately discloses:
+
+- Payroll identifier, employer address, and payroll month
+- Number of employees in the payroll
+- Number of claims processed
+- The fact that a contract, transaction, and validity proof exist
+
+This public state lets an observer verify that a payroll was created and that claims were processed without publishing the payroll amounts.
+
+### Private witness
+
+The contract uses private witness callbacks for employee allocations:
+
+- `getAllocation(employeeAddress)` checks the caller's private allocation
+- `markClaimed(employeeAddress)` updates private claim state
+- Allocation amounts, eligibility details, and whether a particular address has a positive allocation are not written to public ledger fields
+
+The `claimPayment` circuit proves that an eligible allocation exists, marks it as claimed, and increments the public claim counter. It does not disclose the amount in the public ledger.
+
+### What an observer can and cannot learn
+
+| Observer can learn | Observer cannot learn from the contract |
+| --- | --- |
+| Payroll metadata listed above | An employee's salary or payment amount |
+| Public claim count and transaction/proof activity | The allocation of another employee |
+| Contract and wallet addresses that are intentionally disclosed | Private witness values or the complete payroll total |
+
+This model does not hide information that an employer, employee, wallet provider, or application administrator voluntarily reveals outside the contract. Never commit wallet seeds, private keys, `.env` files, or generated deployment state.
+
+## Setup and local usage
+
+### Requirements
+
+- Node.js 22 or newer
+- npm
+- Docker with Docker Compose v2
+- PostgreSQL 16 or another compatible PostgreSQL instance
+- Compact compiler CLI compatible with the generated contract artifacts
+
+### Install the application
 
 ```bash
-npm install
-npm run setup
+git clone https://github.com/janvi100104/SilentPay.git
+cd SilentPay
+npm ci
+cp .env.example .env.local
+npx prisma generate
+npx prisma db push
+npm run dev
+```
+
+Open `http://localhost:3000` after the development server starts. Set `DATABASE_URL` in `.env.local` if PostgreSQL is not running at the default local connection. For a disposable local database, run:
+
+```bash
+docker run --name silentpay-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=silentpay \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+### Compile and deploy the Midnight contract
+
+Start the local Midnight devnet, compile the payroll contract, and deploy it with:
+
+```bash
+docker compose up -d --wait
+npm run compile
+npm run midnight:deploy
+```
+
+The deployment command prints the contract address and stores network-specific deployment state in `.midnight-state.json`, which is gitignored. To run the full setup orchestrator, including database setup:
+
+```bash
+npm run midnight:setup
+```
+
+If PostgreSQL is already configured and only the Midnight services are needed:
+
+```bash
+npm run midnight:setup -- --skip-db
+```
+
+After deployment, inspect the network and address with:
+
+```bash
+npm run midnight:network
+npm run midnight:cli
+```
+
+The local devnet uses a well-known genesis seed with pre-minted development funds. Never use that seed on Preview, Preprod, Mainnet, or any network holding real value.
+
+### Networks
+
+| Network | Purpose | Funding |
+| --- | --- | --- |
+| `undeployed` | Local Docker devnet | Genesis wallet is pre-funded |
+| `preview` | Public Midnight Preview network | Use the configured Preview faucet |
+| `preprod` | Public Midnight Preprod network | Use the configured Preprod faucet |
+
+Switch the active network with `npm run midnight:network -- preview` or `npm run midnight:network -- undeployed`. Public-network wallet seeds and deployment records are stored in `.midnight-state.json`; back up any seed that controls funds you care about.
+
+## Tests and verification
+
+Run the automated tests with:
+
+```bash
+npm test -- --runInBand
+```
+
+The current local verification result is **5 test suites passed and 42 tests passed**. The repository also contains an end-to-end check for a deployed local contract:
+
+```bash
 npm run test:e2e
 ```
 
-`npm run setup` runs end-to-end with no prompts:
+Compile output currently confirms two contract circuits:
 
-1. `docker compose up -d --wait` — starts a local Midnight devnet (node, indexer, proof-server) and blocks until all three pass their healthchecks.
-2. `npm run compile` — compiles `contracts/hello-world.compact` to `contracts/managed/hello-world/`.
-3. `npm run deploy` — derives the genesis-seed wallet (NIGHT pre-minted), registers UTXOs for DUST generation, deploys the contract, writes `.midnight-state.json`.
-
-`npm run test:e2e` reconnects to the deployed contract and reads its ledger state. Exits 0 if the contract is live and indexable.
-
-## Local devnet
-
-The project ships its own devnet via `docker-compose.yml`:
-
-| Service        | Port | Purpose                                         |
-| -------------- | ---- | ----------------------------------------------- |
-| `node`         | 9944 | Midnight node, `dev` chain preset               |
-| `indexer`      | 8088 | GraphQL indexer for chain state                 |
-| `proof-server` | 6300 | Generates ZK proofs for contract transactions   |
-
-State lives in container-managed volumes. Tear everything down with:
-
-```bash
-docker compose down -v
+```text
+Compiling 2 circuits:
 ```
 
-That removes all containers, networks, and volumes. The next `npm run setup` starts from a clean slate.
+The circuits are `createPayroll` and `claimPayment`. A deployment run prints the deployed address in the form:
 
-## ⚠️ LOCAL DEVNET ONLY
-
-The deploy script uses a well-known genesis seed (`0000…0001`) so the
-pre-minted NIGHT in the `dev` chain preset is immediately available. **Do
-not use this seed against Preprod, mainnet, or any environment that
-handles real value** — anyone running this devnet has full access to
-funds at this seed.
-
-## Networks
-
-This DApp supports three networks:
-
-| Network | When to use | Default? |
-|---|---|---|
-| `undeployed` | Local devnet bundled in `docker-compose.yml`. Genesis seed is hardcoded; no funding needed. | yes |
-| `preview` | Public preview testnet. Faucet at `https://midnight-tmnight-preview.nethermind.dev`. |  |
-| `preprod` | Public preprod testnet. Faucet at `https://midnight-tmnight-preprod.nethermind.dev`. |  |
-
-The active network is **sticky**: whichever network you last interacted
-with stays active until you switch. Any command run with `--network <name>`
-also sets that network active for subsequent commands. The default on a
-fresh project is `undeployed` (local devnet).
-
-```sh
-npm run setup -- --network preview   # runs on preview AND makes it active
-npm run cli                          # still uses preview
-npm run check-balance                # still uses preview
+```text
+✅ Contract deployed successfully!
+   Address: <network-specific-address>
 ```
 
-You can also switch without running anything else:
-
-```sh
-npm run network preview         # active network is now preview
-npm run network                 # prints current active network
-npm run network undeployed      # switch back to local devnet
-```
-
-### How wallets work across networks
-
-- `undeployed` uses a hardcoded genesis seed. Local devnet pre-funds it.
-- `preview` and `preprod` generate a fresh seed on first use and store it
-  in `.midnight-state.json` (gitignored). The seed survives switching
-  networks — switch back later and your funded wallet returns.
-- **Back up your seed** if you fund a public-network wallet you care
-  about. Open `.midnight-state.json` and copy the relevant
-  `wallets.<network>.seed` value to a safe place.
-
-### Funding a public-network wallet
-
-On the first run with `--network preview` (or `preprod`):
-
-1. `setup` will print your wallet address and the faucet URL.
-2. Open the faucet URL, paste the address, request tNIGHT.
-3. `setup` polls the wallet balance every 10 s and continues automatically
-   once funds arrive.
-4. The default poll budget is 10 minutes. Override with
-   `MIDNIGHT_FAUCET_TIMEOUT_MS=1800000` (30 min) for unattended runs.
-
-If the faucet is slow or the script times out, your seed is preserved.
-Re-run `npm run setup -- --network preview` once the funds land.
-
-### Environment overrides
-
-These env vars override the active network's config (no per-network
-suffix — they apply to whichever network is active for the run):
-
-| Variable | Effect |
-|---|---|
-| `MIDNIGHT_WALLET_SEED` | Use this seed instead of generating/persisting one. Useful for CI with a pre-funded wallet. |
-| `MIDNIGHT_INDEXER_URL` | Override the indexer GraphQL URL. |
-| `MIDNIGHT_INDEXER_WS_URL` | Override the indexer WS URL. |
-| `MIDNIGHT_NODE_URL` | Override the node RPC URL. |
-| `MIDNIGHT_FAUCET_URL` | Override the faucet URL printed during setup. |
-| `MIDNIGHT_PROOF_SERVER_URL` | Override the proof server URL — set to a public proof server (e.g. `https://lace-proof-pub.preview.midnight.network`) to skip running one locally. |
-| `MIDNIGHT_FAUCET_TIMEOUT_MS` | Faucet poll budget in milliseconds (default 600000 = 10 min). |
-
-By default all networks use the **local** proof server. Public proof
-servers exist (see the env override above) but the local default keeps
-your witness data on your machine and avoids depending on a remote
-service for the deploy hot path.
-
-### Switching back to local devnet
-
-```sh
-npm run network undeployed     # or: npm run setup -- --network undeployed
-```
-
-Your preview/preprod wallet seeds and deploy addresses stay in
-`.midnight-state.json`. Switch back later, and they're still there.
-
-### Wallet sync cache
-
-After each `deploy`, `cli`, or `check-balance` run, the scripts serialize the
-wallet's synced state to `.midnight-wallet-state/<network>/` (gitignored).
-The next run on the same network restores from that snapshot and only catches
-up to the latest block instead of replaying from genesis — meaningful on
-`preview` / `preprod` where a from-seed sync takes minutes.
-
-If the cache is stale or corrupt (e.g. after an SDK upgrade with an
-incompatible state format) the wallet falls back to a fresh from-seed sync
-with a one-line warning. `npm run clean` removes the cache along with other
-generated state.
+The UI screenshots above are included in `docs/screenshots/`. Screenshots of the compile output, test output, and deployed address are separate submission evidence and still belong under `docs/evidence/`; do not use fabricated addresses or output.
 
 ## Available scripts
 
-| Script                  | Description                                                    |
-| ----------------------- | -------------------------------------------------------------- |
-| `npm run setup`         | One-shot: start devnet, compile, deploy.                       |
-| `npm run compile`       | Compile the Compact contract.                                  |
-| `npm run deploy`        | Deploy the compiled contract (requires devnet up + compiled).  |
-| `npm run cli`           | Interactive CLI to call circuits on the deployed contract.     |
-| `npm run check-balance` | Print the genesis-seed wallet's NIGHT and DUST balances.       |
-| `npm run test:e2e`      | Smoke + read-back check against the deployed contract.         |
-| `npm run clean`         | Remove `contracts/managed/`, `.midnight-state.json`, and `.midnight-wallet-state/`. |
-| `npm run proof-server:start` / `:stop` | Compose lifecycle for just the proof-server service. |
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the Next.js development server |
+| `npm run build` | Build the Next.js application |
+| `npm run compile` | Compile `contracts/payroll.compact` |
+| `npm run midnight:setup` | Start services, compile, configure the database, and deploy |
+| `npm run midnight:deploy` | Deploy the compiled payroll contract |
+| `npm run midnight:cli` | Inspect status, balance, deployment, and network state |
+| `npm run midnight:network` | Show or switch the active Midnight network |
+| `npm run midnight:check-balance` | Print the wallet's tNIGHT and DUST balances |
+| `npm run test` | Run Jest tests |
+| `npm run test:e2e` | Check a deployed contract and read its state |
+| `npm run lint` | Run ESLint; existing generated and application lint issues remain to be cleaned up |
+| `npm run clean` | Remove generated contract and local Midnight state |
 
 ## Project structure
 
-```
-cross/
-├── contracts/
-│   └── hello-world.compact     # Compact source
-├── scripts/
-│   └── e2e-check.ts            # smoke + read-back
-├── src/
-│   ├── network.ts              # network selection + state file management
-│   ├── wallet.ts               # wallet construction + sync-state cache
-│   ├── setup.ts                # orchestrator for `npm run setup`
-│   ├── deploy.ts               # deploy the contract
-│   ├── cli.ts                  # interact with deployed contract
-│   └── check-balance.ts        # NIGHT / DUST balance
-├── docker-compose.yml          # node + indexer + proof-server
-├── .midnight-state.json        # written by deploy (gitignored)
-├── .midnight-wallet-state/     # serialized sync state per network (gitignored)
-├── package.json
-└── tsconfig.json
+```text
+contracts/payroll.compact       Compact payroll contract
+src/app/                        Next.js pages and API routes
+src/features/                   Employee, payroll, and claim UI
+src/services/                   Application and Midnight services
+src/midnight/                   Network, wallet, setup, and deploy scripts
+src/**/__tests__/               Jest tests
+docs/                           Product, architecture, schema, and implementation documents
+docker-compose.yml              Local Midnight node, indexer, and proof server
 ```
 
-## Compact compiler version
+## Submission checklist
 
-`.compact-version` at the create-mn-app repo root pinned the compiler
-version this project was scaffolded against. To upgrade your local
-compiler to that version:
+Status below reflects the repository at the time this README was updated. Items marked `needs external evidence` cannot be completed truthfully from source changes alone.
 
-```bash
-compact update <version>
-compact use <version>
-```
+### Core requirements
+
+- [x] GitHub repository URL recorded: [janvi100104/SilentPay](https://github.com/janvi100104/SilentPay)
+- [ ] Repository visibility confirmed as public — **verify this in GitHub repository settings**
+- [x] README includes local setup instructions
+- [x] README explains public state versus private witness data
+- [x] README includes the initial SilentPay product idea
+- [x] UI screenshot gallery added from `docs/screenshots/`
+- [x] Contract compiles locally with two circuits
+- [x] Local tests pass: 5 suites and 42 tests
+- [ ] Screenshot of successful compile output with circuits listed — **needs external evidence**
+- [ ] Screenshot of deployed contract address — **needs a deployment and screenshot**
+- [ ] At least 5 meaningful commits — **not met; current history has 3 commits**
+
+### Extended requirements
+
+- [x] Complete README content added
+- [ ] Live demo link — **not available yet**
+- [x] CI workflow file added at [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+- [ ] CI badge with a passing hosted run — **needs the workflow pushed and a successful run**
+- [ ] Screenshot showing 3 or more passing tests — **needs external evidence**
+- [ ] One-minute demo video showing the full flow — **not added yet**
+- [x] README privacy model explains what an observer can and cannot learn
+- [ ] Product proposal submitted for approval — **draft exists; submission approval is still pending**
+- [ ] At least 10 meaningful commits — **not met; current history has 3 commits**
+
+## Roadmap to submission
+
+1. Run `npm run compile`, `npm test -- --runInBand`, and a local deployment; capture the three required screenshots in `docs/evidence/`.
+2. Push the CI workflow and confirm a passing GitHub Actions run.
+3. Deploy the frontend and replace the live-demo placeholder with its URL.
+4. Record and upload a one-minute walkthrough covering wallet connection, employee setup, payroll creation, and claim flow.
+5. Submit [`docs/01-product-requirements.md`](docs/01-product-requirements.md) for approval.
+6. Continue development with meaningful commits until the 5-commit and 10-commit thresholds are met.
+
+## License
+
+This project is licensed under the MIT License.
