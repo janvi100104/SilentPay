@@ -2,9 +2,10 @@
 
 import { useWallet } from '@/providers/wallet-provider';
 
-function formatAddress(address: string): string {
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+function formatAddress(address: unknown): string {
+  const addr = typeof address === 'string' ? address : String(address ?? '');
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
 export function WalletConnectButton() {

@@ -115,28 +115,58 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       const { wallet } = found;
 
-      // Official pattern: connect() first, THEN setNetworkId() from wallet's own status.
-      // setNetworkId() BEFORE connect() causes "Network ID mismatch".
-      // Try networks in order per official docs: preprod, undeployed, preview
+      // Comprehensive debug: dump everything about the wallet object
+      const allOwnKeys = Object.getOwnPropertyNames(wallet);
+      const proto = Object.getPrototypeOf(wallet);
+      const protoKeys = proto ? Object.getOwnPropertyNames(proto) : [];
+      const allMethods = [...new Set([...allOwnKeys, ...protoKeys])].filter(
+        (k) => typeof (wallet as any)[k] === 'function'
+      );
+      const allGetters = allOwnKeys.filter((k) => {
+        try {
+          const desc = Object.getOwnPropertyDescriptor(wallet, k);
+          return desc && typeof desc.get === 'function';
+        } catch { return false; }
+      });
+      console.log('[SilentPay] Wallet methods:', allMethods);
+      console.log('[SilentPay] Wallet getters:', allGetters);
+      console.log('[SilentPay] Wallet own keys:', allOwnKeys);
+
+      // Check for common wallet methods and their return values
+      for (const fn of ['isEnabled', 'isEnabled', 'serviceUriConfig', 'apiVersion', 'name', 'rdns', 'icon']) {
+        try {
+          const val = (wallet as any)[fn];
+          if (typeof val === 'function') {
+            const result = await val.call(wallet);
+            console.log(`[SilentPay] wallet.${fn}() =`, result);
+          } else if (val !== undefined) {
+            console.log(`[SilentPay] wallet.${fn} =`, val);
+          }
+        } catch (e: any) {
+          console.log(`[SilentPay] wallet.${fn} error:`, e?.message);
+        }
+      }
+
+      // Now try connect - but also check what happens with different error types
       let api: any = null;
       const errors: string[] = [];
-      const networks = ['preprod', 'undeployed', 'preview'];
 
-      for (const netId of networks) {
+      for (const netId of ['preprod', 'undeployed', 'preview', 'mainnet']) {
         try {
           api = await wallet.connect(netId);
-          console.log(`[SilentPay] Connected via connect("${netId}")`);
+          console.log(`[SilentPay] Connected via connect("${netId}")!`);
           break;
         } catch (e: any) {
           const msg = e?.message ?? String(e);
-          console.log(`[SilentPay] connect("${netId}") failed:`, msg);
+          const stack = e?.stack?.split('\n').slice(0, 3).join(' | ');
+          console.log(`[SilentPay] connect("${netId}") error:`, msg, stack);
           errors.push(`connect("${netId}"): ${msg}`);
           api = null;
         }
       }
 
       if (!api) {
-        throw new Error(`All connection attempts failed: ${errors.join(' | ')}`);
+        throw new Error(`Wallet connect failed: ${errors.join(' | ')}`);
       }
 
       // Now align SDK to wallet's actual network (official pattern)
@@ -156,17 +186,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       let network: string | null = null;
       if (typeof api.getConnectionStatus === 'function') {
         const status = await api.getConnectionStatus();
-        network = status.networkId;
-        console.log(`[SilentPay] Wallet network: "${network}"`);
-        if (typeof api.getUnshieldedAddress === 'function') {
-          address = await api.getUnshieldedAddress();
-        }
+        network = status?.networkId ?? null;
+        console.log(`[SilentPay] Wallet status:`, status);
+      }
+      if (typeof api.getUnshieldedAddress === 'function') {
+        const raw = await api.getUnshieldedAddress();
+        address = typeof raw === 'string' ? raw : raw?.address ?? raw?.toString?.() ?? String(raw);
+        console.log(`[SilentPay] Unshielded address:`, typeof raw, raw);
       }
 
       // Fallback to old API
       if (!address && typeof api.state === 'function') {
         const s = await api.state();
-        address = s?.address;
+        address = typeof s?.address === 'string' ? s.address : String(s?.address ?? '');
         if (!network) network = s?.networkId || 'preprod';
       }
 
