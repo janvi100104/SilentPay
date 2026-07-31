@@ -206,45 +206,6 @@ docs/                           Product, architecture, schema, and implementatio
 docker-compose.yml              Local Midnight node, indexer, and proof server
 ```
 
-## Submission checklist
-
-Status below reflects the repository at the time this README was updated. Items marked `needs external evidence` cannot be completed truthfully from source changes alone.
-
-### Core requirements
-
-- [x] GitHub repository URL recorded: [janvi100104/SilentPay](https://github.com/janvi100104/SilentPay)
-- [ ] Repository visibility confirmed as public — **verify this in GitHub repository settings**
-- [x] README includes local setup instructions
-- [x] README explains public state versus private witness data
-- [x] README includes the initial SilentPay product idea
-- [x] UI screenshot gallery added from `docs/screenshots/`
-- [x] Contract compiles locally with two circuits
-- [x] Local tests pass: 5 suites and 42 tests
-- [ ] Screenshot of successful compile output with circuits listed — **needs external evidence**
-- [ ] Screenshot of deployed contract address — **needs a deployment and screenshot**
-- [ ] At least 5 meaningful commits — **not met; current history has 3 commits**
-
-### Extended requirements
-
-- [x] Complete README content added
-- [ ] Live demo link — **not available yet**
-- [x] CI workflow file added at [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-- [ ] CI badge with a passing hosted run — **needs the workflow pushed and a successful run**
-- [ ] Screenshot showing 3 or more passing tests — **needs external evidence**
-- [ ] One-minute demo video showing the full flow — **not added yet**
-- [x] README privacy model explains what an observer can and cannot learn
-- [ ] Product proposal submitted for approval — **draft exists; submission approval is still pending**
-- [ ] At least 10 meaningful commits — **not met; current history has 3 commits**
-
-## Roadmap to submission
-
-1. Run `npm run compile`, `npm test -- --runInBand`, and a local deployment; capture the three required screenshots in `docs/evidence/`.
-2. Push the CI workflow and confirm a passing GitHub Actions run.
-3. Deploy the frontend and replace the live-demo placeholder with its URL.
-4. Record and upload a one-minute walkthrough covering wallet connection, employee setup, payroll creation, and claim flow.
-5. Submit [`docs/01-product-requirements.md`](docs/01-product-requirements.md) for approval.
-6. Continue development with meaningful commits until the 5-commit and 10-commit thresholds are met.
-
 ## License
 
 This project is licensed under the MIT License.
