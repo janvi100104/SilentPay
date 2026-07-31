@@ -1,0 +1,3137 @@
+# 02-system-architecture.md
+
+> **Project:** SilentPay
+>
+> **Version:** 1.0
+>
+> **Architecture Version:** MVP (Midnight Level 1 → Level 3)
+>
+> **Status:** Approved Architecture
+
+---
+
+# Table of Contents
+
+1. Architecture Overview
+2. Design Principles
+3. System Goals
+4. High-Level Architecture
+5. Technology Stack
+6. Why These Technologies?
+7. Project Folder Structure
+8. App Router Structure
+9. Shared Libraries
+10. Environment Variables
+11. Request Lifecycle
+
+---
+
+# Architecture Overview
+
+SilentPay follows a **modular monolithic architecture**.
+
+Instead of separating everything into multiple microservices, the application will have:
+
+- One Next.js application
+- One PostgreSQL database
+- One Midnight smart contract
+- One API layer
+- One frontend
+
+This keeps the project easy to understand while remaining scalable.
+
+---
+
+# Why Modular Monolith?
+
+Hackathons reward **working software**, not infrastructure complexity.
+
+A modular monolith provides:
+
+✅ Faster development
+
+✅ Easier debugging
+
+✅ Less deployment complexity
+
+✅ Simpler database management
+
+✅ Easier Midnight integration
+
+Future versions can split into microservices if required.
+
+---
+
+# System Goals
+
+The architecture should satisfy the following goals.
+
+---
+
+## Goal 1
+
+Simple enough to build in one day.
+
+---
+
+## Goal 2
+
+Clearly demonstrate Midnight privacy.
+
+---
+
+## Goal 3
+
+Easy to extend.
+
+---
+
+## Goal 4
+
+Production-quality folder structure.
+
+---
+
+## Goal 5
+
+Support future features like
+
+- Revenue Splits
+- Recurring Payroll
+- Teams
+- Notifications
+- Analytics
+
+without major refactoring.
+
+---
+
+# Architecture Principles
+
+---
+
+## Principle 1
+
+Privacy First
+
+Everything should assume data is private unless explicitly public.
+
+---
+
+## Principle 2
+
+Frontend Should Stay Thin
+
+Frontend only
+
+- Displays UI
+- Validates forms
+- Calls APIs
+
+Business logic belongs elsewhere.
+
+---
+
+## Principle 3
+
+Business Logic Lives in Services
+
+Never place business logic directly inside page components.
+
+Instead
+
+```
+Page
+
+↓
+
+API Route
+
+↓
+
+Service
+
+↓
+
+Database
+
+↓
+
+Midnight
+```
+
+---
+
+## Principle 4
+
+Database is Metadata
+
+Database stores
+
+- employee names
+- payroll ids
+- timestamps
+- status
+
+Database DOES NOT become the source of truth for private salary data.
+
+Private salary values belong to Midnight.
+
+---
+
+## Principle 5
+
+Every Feature Should Be Independent
+
+Employee module
+
+should not know
+
+Payroll internals.
+
+Payroll module
+
+should not know
+
+Wallet internals.
+
+---
+
+# High-Level Architecture
+
+```
+                    +--------------------+
+                    |    Next.js Client  |
+                    +--------------------+
+                              |
+                              |
+                     Server Actions / API
+                              |
+                              |
+              +-------------------------------+
+              |        Next.js Backend         |
+              |-------------------------------|
+              | Auth                          |
+              | Payroll Service               |
+              | Employee Service              |
+              | Wallet Service                |
+              | Midnight Service              |
+              +-------------------------------+
+                    |                  |
+                    |                  |
+          PostgreSQL DB         Midnight Blockchain
+                    |                  |
+                    |                  |
+               Prisma ORM      Compact Smart Contract
+```
+
+---
+
+# Request Flow
+
+Employer clicks
+
+```
+Generate Payroll
+```
+
+↓
+
+Frontend validates
+
+↓
+
+API Route
+
+↓
+
+Payroll Service
+
+↓
+
+Midnight Service
+
+↓
+
+Compact Contract
+
+↓
+
+Proof Generated
+
+↓
+
+Contract Updated
+
+↓
+
+API Response
+
+↓
+
+Success UI
+
+---
+
+Employee
+
+↓
+
+Claim
+
+↓
+
+API
+
+↓
+
+Contract
+
+↓
+
+Proof Verification
+
+↓
+
+Claim Successful
+
+---
+
+# System Components
+
+The application consists of six major layers.
+
+---
+
+## Layer 1
+
+Presentation Layer
+
+Technology
+
+Next.js
+
+Responsibilities
+
+- Pages
+- Components
+- Forms
+- Tables
+- Dialogs
+
+---
+
+## Layer 2
+
+API Layer
+
+Responsibilities
+
+- Validation
+- Authentication
+- Route Protection
+
+---
+
+## Layer 3
+
+Business Layer
+
+Contains
+
+Services
+
+Example
+
+```
+PayrollService
+
+EmployeeService
+
+WalletService
+
+HistoryService
+```
+
+Business rules belong here.
+
+---
+
+## Layer 4
+
+Persistence Layer
+
+Technology
+
+Prisma
+
+Responsibilities
+
+- Read Database
+- Write Database
+- Transactions
+
+---
+
+## Layer 5
+
+Blockchain Layer
+
+Technology
+
+Midnight Compact
+
+Responsibilities
+
+- Payroll
+- Claims
+- Proofs
+
+---
+
+## Layer 6
+
+Storage Layer
+
+Technology
+
+PostgreSQL
+
+Stores
+
+Metadata
+
+Never confidential salaries.
+
+---
+
+# Technology Stack
+
+---
+
+# Frontend
+
+## Framework
+
+Next.js 15
+
+Reason
+
+App Router
+
+Server Components
+
+Excellent DX
+
+---
+
+## Language
+
+TypeScript
+
+Reason
+
+Type Safety
+
+Better Refactoring
+
+---
+
+## Styling
+
+Tailwind CSS
+
+Reason
+
+Fast
+
+Responsive
+
+Maintainable
+
+---
+
+## UI Library
+
+shadcn/ui
+
+Reason
+
+Accessible
+
+Customizable
+
+Beautiful defaults
+
+---
+
+## Icons
+
+Lucide React
+
+Reason
+
+Consistent icon system.
+
+---
+
+## Forms
+
+React Hook Form
+
+Reason
+
+Performance
+
+Validation
+
+---
+
+## Validation
+
+Zod
+
+Reason
+
+Shared validation
+
+Frontend
+
+Backend
+
+---
+
+## State
+
+TanStack Query
+
+Reason
+
+Server State
+
+Caching
+
+Refetching
+
+---
+
+## Local State
+
+React Context
+
+Only for
+
+Theme
+
+Wallet
+
+User Session
+
+---
+
+# Backend
+
+Framework
+
+Next.js Route Handlers
+
+Reason
+
+No separate backend required.
+
+---
+
+# ORM
+
+Prisma
+
+Reason
+
+Type-safe queries
+
+Easy migrations
+
+---
+
+# Database
+
+PostgreSQL
+
+Reason
+
+Reliable
+
+Relational
+
+Scalable
+
+---
+
+# Blockchain
+
+Midnight Compact
+
+Reason
+
+Private smart contracts.
+
+---
+
+# Wallet
+
+Lace Wallet
+
+Reason
+
+Official Midnight integration.
+
+---
+
+# Hosting
+
+Frontend
+
+Vercel
+
+---
+
+Backend
+
+Vercel
+
+---
+
+Database
+
+Railway PostgreSQL
+
+---
+
+# Version Control
+
+GitHub
+
+---
+
+# CI
+
+GitHub Actions
+
+---
+
+# Project Folder Structure
+
+```
+silentpay/
+
+app/
+components/
+features/
+lib/
+services/
+hooks/
+providers/
+types/
+prisma/
+contracts/
+managed/
+public/
+styles/
+```
+
+---
+
+# Folder Responsibilities
+
+---
+
+## app/
+
+Contains
+
+Pages
+
+Layouts
+
+Route Groups
+
+API Routes
+
+---
+
+## components/
+
+Reusable UI.
+
+Examples
+
+```
+Button
+
+Table
+
+Modal
+
+Sidebar
+
+Navbar
+
+Badge
+
+Card
+```
+
+---
+
+## features/
+
+Business-specific UI.
+
+```
+employees/
+
+payroll/
+
+wallet/
+
+claims/
+
+dashboard/
+```
+
+Each feature owns
+
+Components
+
+Hooks
+
+Types
+
+Utilities
+
+---
+
+## lib/
+
+General utilities.
+
+```
+db.ts
+
+auth.ts
+
+utils.ts
+
+constants.ts
+```
+
+---
+
+## services/
+
+Business Logic.
+
+```
+PayrollService.ts
+
+EmployeeService.ts
+
+ClaimService.ts
+
+WalletService.ts
+
+MidnightService.ts
+```
+
+No React code here.
+
+---
+
+## hooks/
+
+Reusable Hooks
+
+```
+useWallet()
+
+usePayroll()
+
+useEmployee()
+
+useClaim()
+```
+
+---
+
+## providers/
+
+React Providers
+
+```
+Theme
+
+Wallet
+
+Query Client
+```
+
+---
+
+## prisma/
+
+Schema
+
+Migrations
+
+Seed
+
+---
+
+## contracts/
+
+Compact Contracts
+
+```
+payroll.compact
+
+split.compact
+```
+
+---
+
+## managed/
+
+Auto-generated
+
+Never edit manually.
+
+Contains
+
+- Circuits
+- Keys
+
+---
+
+## public/
+
+Images
+
+Logos
+
+Icons
+
+---
+
+## styles/
+
+Global CSS
+
+Fonts
+
+Animations
+
+---
+
+# App Router Structure
+
+```
+app
+│
+├── (marketing)
+│
+├── (auth)
+│
+├── dashboard
+│
+├── employee
+│
+├── api
+│
+└── layout.tsx
+```
+
+---
+
+# Marketing Routes
+
+```
+/
+
+about
+
+pricing
+
+docs
+```
+
+Public
+
+---
+
+# Auth Routes
+
+```
+/sign-in
+
+/sign-up
+```
+
+Public
+
+---
+
+# Dashboard Routes
+
+```
+dashboard/
+
+employees/
+
+payroll/
+
+history/
+
+settings/
+```
+
+Protected
+
+Employer Only
+
+---
+
+# Employee Routes
+
+```
+employee/
+
+history/
+
+claim/
+```
+
+Protected
+
+Employee Only
+
+---
+
+# API Routes
+
+```
+api/
+
+employees
+
+payroll
+
+claim
+
+wallet
+
+history
+```
+
+Never called directly from browser navigation.
+
+---
+
+# Shared Libraries
+
+The following utilities should be globally reusable.
+
+```
+formatDate()
+
+formatWallet()
+
+truncateAddress()
+
+calculateProgress()
+
+validateWallet()
+
+generatePayrollStatus()
+```
+
+Never duplicate utility functions.
+
+---
+
+# Environment Variables
+
+```
+DATABASE_URL=
+
+MIDNIGHT_NETWORK=
+
+MIDNIGHT_PRIVATE_KEY=
+
+NEXT_PUBLIC_NETWORK=
+
+NEXT_PUBLIC_APP_URL=
+
+NEXT_PUBLIC_WALLET_NAME=
+```
+
+Never expose private keys.
+
+---
+
+# Request Lifecycle
+
+Employer presses
+
+```
+Create Payroll
+```
+
+↓
+
+React Hook Form validates
+
+↓
+
+Zod validates
+
+↓
+
+POST /api/payroll
+
+↓
+
+PayrollService
+
+↓
+
+Prisma
+
+↓
+
+Midnight Service
+
+↓
+
+Compact Contract
+
+↓
+
+Proof Generated
+
+↓
+
+Database Updated
+
+↓
+
+Response Returned
+
+↓
+
+Dashboard Refreshes
+
+---
+# 02-system-architecture.md
+
+> **Part 2**
+>
+> **Frontend Architecture • Component Architecture • Authentication • Wallet Integration • State Management • API Design • Service Layer • Route Protection**
+
+---
+
+# Table of Contents
+
+11. Frontend Architecture
+12. Component Architecture
+13. Feature-based Architecture
+14. State Management
+15. Authentication
+16. Wallet Integration
+17. Route Protection
+18. API Architecture
+19. Service Layer
+20. Error Handling
+21. Loading Architecture
+
+---
+
+# Frontend Architecture
+
+## Philosophy
+
+The frontend should **only be responsible for presentation**.
+
+It should never contain:
+
+- Business logic
+- Database queries
+- Midnight contract logic
+- Payroll calculations
+
+Instead, it should:
+
+- Display data
+- Collect user input
+- Validate forms
+- Call backend APIs
+- Render success/error states
+
+---
+
+## Frontend Layer
+
+```text
+User
+
+↓
+
+Next.js Page
+
+↓
+
+Feature Component
+
+↓
+
+Reusable UI Component
+
+↓
+
+Hook
+
+↓
+
+API
+
+↓
+
+Backend
+```
+
+---
+
+# App Router Structure
+
+```text
+app/
+
+(marketing)/
+    page.tsx
+    pricing/page.tsx
+    docs/page.tsx
+
+(auth)/
+    sign-in/page.tsx
+
+dashboard/
+    layout.tsx
+    page.tsx
+
+    employees/
+        page.tsx
+        loading.tsx
+        error.tsx
+
+    payroll/
+        page.tsx
+
+        create/
+            page.tsx
+
+        [payrollId]/
+            page.tsx
+
+    history/
+        page.tsx
+
+    settings/
+        page.tsx
+
+employee/
+    layout.tsx
+
+    page.tsx
+
+    history/
+        page.tsx
+
+    claim/
+        page.tsx
+
+api/
+```
+
+---
+
+# Why Route Groups?
+
+Using route groups keeps marketing pages completely separated from authenticated application pages.
+
+```text
+(marketing)
+
+↓
+
+Public Website
+
+
+(auth)
+
+↓
+
+Authentication
+
+
+dashboard
+
+↓
+
+Employer
+
+
+employee
+
+↓
+
+Employee
+```
+
+This structure scales well as the project grows.
+
+---
+
+# Feature-Based Architecture
+
+Instead of organizing by file type, organize by feature.
+
+```text
+features/
+
+employees/
+
+payroll/
+
+wallet/
+
+history/
+
+dashboard/
+
+claims/
+```
+
+Each feature owns everything related to itself.
+
+Example:
+
+```text
+features/payroll/
+
+components/
+
+hooks/
+
+types/
+
+validators/
+
+services/
+
+constants.ts
+```
+
+Benefits:
+
+- Easier maintenance
+- Less coupling
+- Better scalability
+
+---
+
+# Component Architecture
+
+Every UI component belongs to one of four categories.
+
+---
+
+# 1. Layout Components
+
+Reusable page structure.
+
+Examples
+
+```text
+Sidebar
+
+Navbar
+
+DashboardLayout
+
+PageHeader
+
+Footer
+```
+
+These components should never contain business logic.
+
+---
+
+# 2. UI Components
+
+Pure design components.
+
+Examples
+
+```text
+Button
+
+Card
+
+Dialog
+
+Input
+
+Table
+
+Badge
+
+Avatar
+
+Spinner
+
+Tooltip
+```
+
+These should be reusable across the application.
+
+---
+
+# 3. Feature Components
+
+Specific to one feature.
+
+Example
+
+```text
+PayrollTable
+
+EmployeeForm
+
+ClaimCard
+
+PayrollProgress
+
+WalletCard
+```
+
+These may use hooks but should not directly call the database.
+
+---
+
+# 4. Page Components
+
+Located inside `app/`.
+
+Purpose:
+
+- Fetch data
+- Render layouts
+- Pass props
+
+They should remain as thin as possible.
+
+---
+
+# Component Hierarchy
+
+```text
+Dashboard Page
+
+↓
+
+Dashboard Layout
+
+↓
+
+Payroll Feature
+
+↓
+
+Payroll Table
+
+↓
+
+Table Component
+
+↓
+
+Button Component
+```
+
+Every layer has one responsibility.
+
+---
+
+# State Management
+
+SilentPay uses three types of state.
+
+---
+
+# Local UI State
+
+Technology
+
+React useState
+
+Examples
+
+- Modal open
+- Selected employee
+- Search value
+- Drawer state
+
+Never store server data here.
+
+---
+
+# Shared State
+
+Technology
+
+React Context
+
+Used only for:
+
+- Wallet
+- Theme
+- Auth Session
+
+Avoid putting business data in Context.
+
+---
+
+# Server State
+
+Technology
+
+TanStack Query
+
+Stores:
+
+- Employees
+- Payrolls
+- History
+- Claims
+
+Benefits:
+
+- Automatic caching
+- Background refetch
+- Loading states
+- Error handling
+- Optimistic updates
+
+---
+
+# Form State
+
+Technology
+
+React Hook Form
+
+Every form uses:
+
+```text
+React Hook Form
+
++
+
+Zod
+```
+
+Validation occurs before any API call.
+
+---
+
+# Data Fetching Strategy
+
+All server data is fetched through APIs.
+
+Never query the database directly from client components.
+
+```text
+Client Component
+
+↓
+
+Hook
+
+↓
+
+API
+
+↓
+
+Service
+
+↓
+
+Database
+```
+
+---
+
+# Authentication Architecture
+
+SilentPay supports two user roles.
+
+```text
+Employer
+
+Employee
+```
+
+Future versions can add:
+
+- HR Manager
+- Finance Admin
+- Organization Owner
+
+---
+
+# Authentication Flow
+
+```text
+Landing
+
+↓
+
+Connect Lace Wallet
+
+↓
+
+Wallet Signature
+
+↓
+
+Backend Verification
+
+↓
+
+Create Session
+
+↓
+
+Redirect Dashboard
+```
+
+---
+
+# Session Structure
+
+Each authenticated session stores:
+
+```text
+walletAddress
+
+role
+
+organizationId
+
+sessionExpiry
+```
+
+Sensitive information should never be stored in localStorage.
+
+Use secure cookies or server sessions.
+
+---
+
+# Authorization Rules
+
+Employer can:
+
+- View dashboard
+- Manage employees
+- Create payroll
+- View payroll history
+
+Cannot:
+
+- Claim employee payroll
+
+---
+
+Employee can:
+
+- View own dashboard
+- View own history
+- Claim payment
+
+Cannot:
+
+- View employees
+- View payrolls
+- Create payroll
+
+---
+
+# Wallet Integration
+
+Wallet connection is central to SilentPay.
+
+Supported Wallet
+
+```text
+Lace Wallet
+```
+
+---
+
+# Wallet Lifecycle
+
+```text
+Connect
+
+↓
+
+Verify
+
+↓
+
+Save Session
+
+↓
+
+Use Wallet
+
+↓
+
+Disconnect
+```
+
+---
+
+# Wallet Context
+
+The Wallet Provider should expose:
+
+```ts
+walletAddress
+
+isConnected
+
+connect()
+
+disconnect()
+
+signMessage()
+
+network
+```
+
+No component should implement wallet logic directly.
+
+---
+
+# Wallet Service
+
+Responsibilities:
+
+- Connect wallet
+- Disconnect wallet
+- Verify ownership
+- Detect network
+- Handle errors
+
+---
+
+# Wallet Validation
+
+Before allowing any payroll action:
+
+Validate:
+
+- Wallet connected
+- Correct network
+- Valid address
+- Authorized user
+
+---
+
+# Route Protection
+
+SilentPay uses middleware.
+
+---
+
+# Public Routes
+
+```text
+/
+
+pricing
+
+docs
+
+about
+
+sign-in
+```
+
+No authentication required.
+
+---
+
+# Employer Routes
+
+```text
+/dashboard
+
+/dashboard/employees
+
+/dashboard/payroll
+
+/dashboard/settings
+
+/dashboard/history
+```
+
+Require:
+
+- Wallet
+- Employer role
+
+---
+
+# Employee Routes
+
+```text
+/employee
+
+/employee/history
+
+/employee/claim
+```
+
+Require:
+
+- Wallet
+- Employee role
+
+---
+
+# Unauthorized Access
+
+If user attempts to access an invalid route:
+
+```text
+Redirect
+
+↓
+
+Unauthorized Page
+```
+
+Never expose hidden pages.
+
+---
+
+# API Architecture
+
+All communication flows through REST endpoints.
+
+```text
+Frontend
+
+↓
+
+API Route
+
+↓
+
+Service
+
+↓
+
+Prisma
+
+↓
+
+Midnight
+```
+
+---
+
+# API Folder Structure
+
+```text
+api/
+
+employees/
+
+payroll/
+
+claims/
+
+wallet/
+
+history/
+
+organization/
+```
+
+Each route should perform only one task.
+
+---
+
+# API Principles
+
+Every endpoint must:
+
+- Validate request
+- Authenticate user
+- Authorize role
+- Execute business logic
+- Return consistent response
+
+---
+
+# Standard API Response
+
+```json
+{
+  "success": true,
+  "message": "Payroll created successfully",
+  "data": {}
+}
+```
+
+---
+
+# Error Response
+
+```json
+{
+  "success": false,
+  "message": "Employee not found",
+  "error": "EMPLOYEE_NOT_FOUND"
+}
+```
+
+Always return predictable structures.
+
+---
+
+# Service Layer
+
+Business logic belongs here.
+
+Example:
+
+```text
+PayrollService
+
+↓
+
+EmployeeService
+
+↓
+
+ClaimService
+
+↓
+
+WalletService
+
+↓
+
+HistoryService
+
+↓
+
+MidnightService
+```
+
+---
+
+# Responsibilities
+
+## PayrollService
+
+- Create payroll
+- Validate payroll
+- Track progress
+
+---
+
+## EmployeeService
+
+- CRUD
+- Validation
+- Duplicate detection
+
+---
+
+## ClaimService
+
+- Verify eligibility
+- Prevent double claim
+- Update history
+
+---
+
+## WalletService
+
+- Connect
+- Disconnect
+- Verify ownership
+
+---
+
+## MidnightService
+
+- Execute circuits
+- Submit proofs
+- Read contract state
+- Handle blockchain errors
+
+---
+
+# Dependency Rule
+
+Services may depend on:
+
+- Prisma
+- Midnight SDK
+- Utility functions
+
+Services should **never** depend on React components.
+
+---
+
+# Error Handling Strategy
+
+Every layer should handle its own errors.
+
+---
+
+## UI Errors
+
+Examples:
+
+- Invalid input
+- Required field missing
+
+Display inline validation.
+
+---
+
+## API Errors
+
+Examples:
+
+- Unauthorized
+- Employee not found
+- Payroll missing
+
+Return HTTP status codes with structured JSON.
+
+---
+
+## Database Errors
+
+Examples:
+
+- Duplicate wallet
+- Constraint violation
+
+Log internally.
+
+Return user-friendly messages.
+
+---
+
+## Blockchain Errors
+
+Examples:
+
+- Circuit failed
+- Network unavailable
+- Invalid proof
+
+Retry where appropriate and show actionable feedback.
+
+---
+
+# Error Boundaries
+
+Each major route should have:
+
+```text
+loading.tsx
+
+error.tsx
+
+not-found.tsx
+```
+
+This prevents a single failure from crashing the application.
+
+---
+
+# Loading Strategy
+
+Every asynchronous operation should expose loading state.
+
+---
+
+## Page Loading
+
+Use Next.js:
+
+```text
+loading.tsx
+```
+
+---
+
+## Form Loading
+
+Disable submit button.
+
+Show spinner.
+
+Example:
+
+```text
+Generating Payroll...
+```
+
+---
+
+## Wallet Loading
+
+Display:
+
+```text
+Connecting Wallet...
+```
+
+---
+
+## Claim Loading
+
+Display:
+
+```text
+Verifying Eligibility...
+```
+
+then
+
+```text
+Claiming Payment...
+```
+
+---
+
+# Toast Notifications
+
+Success
+
+```text
+Employee Added
+```
+
+```text
+Payroll Generated
+```
+
+```text
+Claim Successful
+```
+
+---
+
+Errors
+
+```text
+Wallet Connection Failed
+```
+
+```text
+Payroll Generation Failed
+```
+
+```text
+Already Claimed
+```
+
+---
+
+# Logging Strategy
+
+Development:
+
+- Console logging
+- Network debugging
+- Contract responses
+
+Production:
+
+- Structured application logs
+- API error logs
+- Blockchain transaction logs
+
+Never log:
+
+- Salary amounts
+- Private payroll allocations
+- Sensitive wallet secrets
+
+---
+# 02-system-architecture.md
+
+> **Part 3**
+>
+> **Midnight Architecture • Blockchain Integration • Data Flow • Security • Performance • Deployment Architecture**
+
+---
+
+# Table of Contents
+
+22. Midnight Architecture
+23. Compact Contract Design
+24. Data Ownership
+25. End-to-End Data Flow
+26. Sequence Diagrams
+27. Database Interaction
+28. Security Architecture
+29. Performance Architecture
+30. Caching Strategy
+31. Deployment Architecture
+32. Infrastructure
+33. Monitoring
+34. Final Architecture Checklist
+
+---
+
+# Midnight Architecture
+
+## Why Midnight?
+
+SilentPay exists because of Midnight.
+
+Without Midnight, salaries would be visible on-chain.
+
+Midnight provides:
+
+- Private State
+- Zero-Knowledge Proofs
+- Confidential Smart Contracts
+- Selective Disclosure
+
+SilentPay treats Midnight as the **source of truth for confidential payroll data**.
+
+---
+
+# Architecture Responsibility
+
+```text
+Frontend
+
+↓
+
+Backend
+
+↓
+
+Midnight Service
+
+↓
+
+Compact Contract
+
+↓
+
+Private Ledger
+```
+
+The frontend **never communicates directly** with the contract.
+
+Everything flows through the backend service layer.
+
+---
+
+# Midnight Responsibilities
+
+Midnight stores:
+
+- Private payroll allocations
+- Employee eligibility
+- Claim verification state
+- Proof verification
+- Double-claim protection
+
+---
+
+# PostgreSQL Responsibilities
+
+The database stores only metadata.
+
+Examples:
+
+- Employee profile
+- Payroll month
+- Status
+- Company
+- History
+- Contract Address
+
+Never:
+
+- Salary
+- Bonus
+- Revenue share
+- Private payroll amount
+
+---
+
+# Data Ownership
+
+| Data | Owner |
+|--------|--------|
+| Employee Name | PostgreSQL |
+| Wallet Address | PostgreSQL |
+| Payroll Month | PostgreSQL |
+| Payroll Status | PostgreSQL |
+| Contract Address | PostgreSQL |
+| Salary Amount | Midnight |
+| Bonus | Midnight |
+| Revenue Split | Midnight |
+| Claim Eligibility | Midnight |
+
+---
+
+# Smart Contract Architecture
+
+SilentPay uses one Compact contract.
+
+Future versions may split into:
+
+```text
+Payroll Contract
+
+Revenue Split Contract
+
+Treasury Contract
+```
+
+For MVP:
+
+One contract is enough.
+
+---
+
+# Contract Responsibilities
+
+The contract must:
+
+- Create Payroll
+- Store Private Allocations
+- Verify Claims
+- Prevent Double Claims
+- Emit Public Proof
+
+---
+
+# Contract Lifecycle
+
+```text
+Deploy Contract
+
+↓
+
+Employer Creates Payroll
+
+↓
+
+Private Ledger Updated
+
+↓
+
+Employees Claim
+
+↓
+
+Proof Verified
+
+↓
+
+Payroll Completed
+```
+
+---
+
+# Payroll Creation Flow
+
+```text
+Employer
+
+↓
+
+Dashboard
+
+↓
+
+Payroll Form
+
+↓
+
+POST /api/payroll
+
+↓
+
+PayrollService
+
+↓
+
+MidnightService
+
+↓
+
+Compact Contract
+
+↓
+
+Create Payroll Circuit
+
+↓
+
+Proof Generated
+
+↓
+
+Ledger Updated
+
+↓
+
+Return Success
+```
+
+---
+
+# Employee Claim Flow
+
+```text
+Employee
+
+↓
+
+Connect Wallet
+
+↓
+
+Claim Button
+
+↓
+
+POST /api/claim
+
+↓
+
+ClaimService
+
+↓
+
+MidnightService
+
+↓
+
+Verify Proof
+
+↓
+
+Verify Wallet
+
+↓
+
+Claim
+
+↓
+
+Update Metadata
+
+↓
+
+Return Success
+```
+
+---
+
+# Data Flow Architecture
+
+## Employee Creation
+
+```text
+Employer
+
+↓
+
+Employee Form
+
+↓
+
+API
+
+↓
+
+Employee Service
+
+↓
+
+Prisma
+
+↓
+
+PostgreSQL
+```
+
+No blockchain interaction required.
+
+---
+
+## Payroll Creation
+
+```text
+Employer
+
+↓
+
+Payroll Form
+
+↓
+
+Validation
+
+↓
+
+Payroll Service
+
+↓
+
+Midnight Service
+
+↓
+
+Compact Circuit
+
+↓
+
+Proof
+
+↓
+
+Database Metadata
+
+↓
+
+Success
+```
+
+---
+
+## Claim
+
+```text
+Employee
+
+↓
+
+Wallet Verification
+
+↓
+
+Claim Service
+
+↓
+
+Compact Contract
+
+↓
+
+Proof Verification
+
+↓
+
+Claim Complete
+
+↓
+
+History Updated
+```
+
+---
+
+# Sequence Diagram
+
+```text
+Employer
+    |
+    | Create Payroll
+    |
+Frontend
+    |
+    | POST /api/payroll
+    |
+Backend
+    |
+    | Validate
+    |
+Payroll Service
+    |
+    | Execute Circuit
+    |
+Midnight
+    |
+    | Proof
+    |
+Payroll Service
+    |
+Database Updated
+    |
+Frontend Updated
+```
+
+---
+
+# Database Interaction
+
+The application follows Repository-style data access.
+
+```text
+API
+
+↓
+
+Service
+
+↓
+
+Prisma
+
+↓
+
+PostgreSQL
+```
+
+React components never access the database.
+
+---
+
+# Transaction Strategy
+
+Every payroll creation should execute inside a database transaction.
+
+```text
+Create Payroll
+
+↓
+
+Create Metadata
+
+↓
+
+Save Contract Address
+
+↓
+
+Commit
+```
+
+If Midnight execution fails:
+
+Rollback metadata.
+
+---
+
+# Security Architecture
+
+SilentPay follows the principle:
+
+> **Everything private unless explicitly public**
+
+---
+
+# Security Layers
+
+```text
+UI Validation
+
+↓
+
+API Validation
+
+↓
+
+Authentication
+
+↓
+
+Authorization
+
+↓
+
+Database Validation
+
+↓
+
+Midnight Validation
+
+↓
+
+Contract Validation
+```
+
+Every request passes all layers.
+
+---
+
+# Authentication Security
+
+Only authenticated wallets can access protected APIs.
+
+Session must contain:
+
+```text
+walletAddress
+
+role
+
+organizationId
+```
+
+---
+
+# Authorization
+
+Employer:
+
+Can:
+
+- Create Payroll
+- Manage Employees
+
+Cannot:
+
+- Claim Employee Payroll
+
+---
+
+Employee:
+
+Can:
+
+- Claim
+- View Own History
+
+Cannot:
+
+- Access Employer Dashboard
+
+---
+
+# Input Validation
+
+Every API uses Zod.
+
+Validation occurs:
+
+```text
+Client
+
+↓
+
+Server
+
+↓
+
+Service
+```
+
+Never trust frontend input.
+
+---
+
+# SQL Injection Protection
+
+Prisma ORM prevents raw SQL execution.
+
+Avoid raw queries unless absolutely necessary.
+
+---
+
+# Contract Security
+
+The Compact contract must enforce:
+
+- Eligible wallet only
+- One claim only
+- Valid proof
+- Payroll exists
+
+Never trust frontend claims.
+
+---
+
+# Secret Management
+
+Never commit:
+
+```text
+.env
+
+Private Keys
+
+Database URLs
+
+Wallet Secrets
+```
+
+Use:
+
+```text
+.env.local
+```
+
+Locally
+
+and
+
+Vercel Environment Variables
+
+in production.
+
+---
+
+# Performance Goals
+
+| Metric | Target |
+|----------|----------|
+| Dashboard Load | <2 sec |
+| Payroll Generation | <10 sec |
+| Claim | <5 sec |
+| Wallet Connection | <5 sec |
+| API Response | <500 ms |
+
+---
+
+# Rendering Strategy
+
+Marketing Pages
+
+→ Static Rendering
+
+Dashboard
+
+→ Dynamic Rendering
+
+Employee Dashboard
+
+→ Dynamic Rendering
+
+Payroll Details
+
+→ Dynamic Rendering
+
+---
+
+# Server Components
+
+Use Server Components whenever possible.
+
+Ideal for:
+
+- Dashboard
+- History
+- Employee List
+
+Benefits:
+
+- Faster
+- Smaller bundles
+- Better SEO
+
+---
+
+# Client Components
+
+Use only when needed.
+
+Examples:
+
+- Wallet Connect
+- Forms
+- Dialogs
+- Interactive Tables
+
+---
+
+# Caching Strategy
+
+Static Content
+
+Cached
+
+---
+
+Dashboard Data
+
+Fresh
+
+---
+
+Employee List
+
+Cached briefly
+
+Invalidate after mutations.
+
+---
+
+Payroll History
+
+Cached
+
+Refetch after claim.
+
+---
+
+# Optimistic Updates
+
+After:
+
+Employee Added
+
+Immediately update UI.
+
+Rollback on API failure.
+
+---
+
+# Pagination
+
+Large employee lists should support pagination.
+
+Default:
+
+20 rows/page
+
+Future:
+
+Infinite Scroll
+
+---
+
+# Search Strategy
+
+Employees
+
+Client-side search initially.
+
+Future:
+
+Server search.
+
+---
+
+# Deployment Architecture
+
+```text
+GitHub
+
+↓
+
+GitHub Actions
+
+↓
+
+Build
+
+↓
+
+Tests
+
+↓
+
+Deploy
+
+↓
+
+Vercel
+
+↓
+
+Production
+```
+
+---
+
+# Blockchain Deployment
+
+Compact Contract
+
+↓
+
+Preview Network
+
+↓
+
+Preprod
+
+↓
+
+Verified Address
+
+---
+
+# Infrastructure
+
+## Frontend
+
+Vercel
+
+---
+
+## Backend
+
+Next.js Route Handlers
+
+Hosted on Vercel
+
+---
+
+## Database
+
+Railway PostgreSQL
+
+---
+
+## Blockchain
+
+Midnight Preprod
+
+---
+
+# CI/CD Flow
+
+```text
+Push
+
+↓
+
+GitHub
+
+↓
+
+Install
+
+↓
+
+Compile
+
+↓
+
+Run Tests
+
+↓
+
+Build
+
+↓
+
+Success
+```
+
+---
+
+# Logging
+
+Development
+
+- API Logs
+- Contract Logs
+- Prisma Logs
+
+Production
+
+- Error Logs
+- Transaction Logs
+- Deployment Logs
+
+Never log private salary data.
+
+---
+
+# Monitoring
+
+Track:
+
+- Failed API Requests
+- Wallet Connection Errors
+- Circuit Failures
+- Deployment Status
+- Build Status
+
+---
+
+# Recovery Strategy
+
+If API fails
+
+↓
+
+Retry
+
+If Contract fails
+
+↓
+
+Retry
+
+If Database fails
+
+↓
+
+Rollback
+
+---
+
+# Architecture Rules
+
+Every developer must follow these rules.
+
+---
+
+## Rule 1
+
+Business logic belongs in Services.
+
+---
+
+## Rule 2
+
+Never query the database from React components.
+
+---
+
+## Rule 3
+
+Never expose private payroll values.
+
+---
+
+## Rule 4
+
+Never duplicate validation.
+
+---
+
+## Rule 5
+
+Never bypass Midnight validation.
+
+---
+
+## Rule 6
+
+Every protected route requires authentication.
+
+---
+
+## Rule 7
+
+Every mutation must return consistent responses.
+
+---
+
+## Rule 8
+
+Every feature should remain modular.
+
+---
+
+# Final Architecture Acceptance Checklist
+
+## Frontend
+
+- [ ] App Router configured
+- [ ] Feature folders created
+- [ ] Shared UI components created
+- [ ] Layouts implemented
+
+---
+
+## Backend
+
+- [ ] API Routes created
+- [ ] Service Layer implemented
+- [ ] Prisma configured
+
+---
+
+## Database
+
+- [ ] PostgreSQL connected
+- [ ] Migrations completed
+- [ ] Seed data added
+
+---
+
+## Midnight
+
+- [ ] Compact contract created
+- [ ] Contract compiles
+- [ ] Managed folder generated
+- [ ] Contract deployed
+
+---
+
+## Wallet
+
+- [ ] Lace Wallet connected
+- [ ] Session works
+- [ ] Protected routes work
+
+---
+
+## Performance
+
+- [ ] Build succeeds
+- [ ] No console errors
+- [ ] API <500ms (local)
+- [ ] Dashboard loads correctly
+
+---
+
+## Security
+
+- [ ] Secrets stored securely
+- [ ] Validation implemented
+- [ ] Authorization enforced
+- [ ] Private payroll data never stored in PostgreSQL
+
+---
+
+# Architecture Summary
+
+SilentPay follows a layered, modular monolith architecture designed specifically to showcase Midnight's privacy model while remaining practical to build within the Midnight Builder Program timeline.
+
+The architecture separates concerns between presentation, business logic, persistence, and blockchain interaction, ensuring the application is maintainable, scalable, and secure. PostgreSQL stores only application metadata, while Midnight remains the authoritative source for confidential payroll information, allowing the product to demonstrate meaningful privacy guarantees rather than simply hiding data in the frontend.
+
+---
+
+
+

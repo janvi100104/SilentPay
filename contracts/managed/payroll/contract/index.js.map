@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.js",
+  "sourceRoot": "../../../../",
+  "sources": ["contracts/payroll.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAAA;;;;;;;;;;;;;;;;MA8BA,AAAA,aAWC;;;;;cAVG,IAAoB;cACpB,UAA0B;cAC1B,OAAuB;cACvB,cAAmB;;;;;;;;;;;;;;;;;;yCAHnB,IAAoB,+BACpB,UAA0B,+BAC1B,OAAuB,+BACvB,cAAmB;;;;;;;;;+CAHnB,IAAoB;+CACpB,UAA0B;+CAC1B,OAAuB;+CACvB,cAAmB;;;OAOtB;MAID,AAAA,YAYC;;;;;cAXG,iBAAiC;;;;;;;;;;;yCAAjC,iBAAiC;;;;;;;;;8CAAjC,iBAAiC;;;OAWpC;;;;;;;;;;GACA;EA1DD;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IAQA;;;;;;;;;yEAA0C;IAC1C;;;;;;;;;yEAAgD;IAChD;;;;;;;;;yEAA6C;IAC7C;;;;;;;;;yEAAoC;IAGpC;;;;;;;;;yEAAgC;;;;;;;GA4C/B;EArCD,AAAA,gBAAmE,4BAA7C,iBAAiC;;0DAAvD,aAAmE;wEAA7C,iBAAiC;;;;;;;;;;;;;;GAAY;EAGnE,AAAA,cAA2D,4BAAvC,iBAAiC;;0DAArD,WAA2D;sEAAvC,iBAAiC;;;;;;;;;;;;;;GAAM;EAM3D,AAAA,gBAWC;;mBAVG,IAAoB;mBACpB,UAA0B;mBAC1B,OAAuB;mBACvB,cAAmB;;IAEnB;;;;;;;2HAAqB,IAAE;;yEAAd;IACT;;;;;;;2HAA2B,UAAQ;;yEAApB;IACf;;;;;;;2HAAwB,OAAK;;yEAAjB;IACZ;;;;;;;2HAA0B,cAAY;;yEAAxB;UACd,KAAU;IAAV;;;;;;;2HAAA,KAAU;;yEAAA;;GACb;EAID,AAAA,eAYC,4BAXG,iBAAiC;UAG3B,QAAuC;;2CAAhB,iBAAe;4BACrC,QAAM;mDAGD,iBAAe;UAG3B,KAAU,qDAAG;;;;;;;;;;;yIAAU;;IAAvB;;;;;;;2HAAA,KAAU;;yEAAA;;GACb;;;;;;;;;;;;;;;;IAjDD;qCAAA;;;;;;;;;;;0GAA0C;KAAA;IAC1C;qCAAA;;;;;;;;;;;0GAAgD;KAAA;IAChD;qCAAA;;;;;;;;;;;0GAA6C;KAAA;IAC7C;qCAAA;;;;;;;;;;;0GAAoC;KAAA;IAGpC;qCAAA;;;;;;;;;;;0GAAgC;KAAA;;;;;;;;;;;;"
+}

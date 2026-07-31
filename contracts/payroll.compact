@@ -1,0 +1,58 @@
+pragma language_version >= 0.23;
+
+import CompactStandardLibrary;
+
+// ─── Public Ledger State ────────────────────────────────────────────────────
+// Visible on blockchain: proves payroll exists without revealing amounts
+
+// Payroll metadata (public)
+export ledger payrollId: Opaque<"string">;
+export ledger employerAddress: Opaque<"string">;
+export ledger payrollMonth: Opaque<"string">;
+export ledger totalEmployees: Field;
+
+// Claim tracking (public - proves claims happened)
+export ledger claimCount: Field;
+
+// ─── Witnesses (private state callbacks) ────────────────────────────────────
+// The TypeScript driver implements these to manage private allocations.
+// The contract calls them to verify eligibility without seeing the data.
+
+// Returns the employee's allocation amount (or 0 if not eligible / already claimed)
+witness getAllocation(employeeAddress: Opaque<"string">): Uint<64>;
+
+// Marks an employee's allocation as claimed (sets to 0 in private state)
+witness markClaimed(employeeAddress: Opaque<"string">): [];
+
+// ─── Circuits ───────────────────────────────────────────────────────────────
+
+// Create a new payroll with private allocations
+// Employer calls this to initialize payroll
+export circuit createPayroll(
+    id: Opaque<"string">,
+    employer: Opaque<"string">,
+    month: Opaque<"string">,
+    numEmployees: Field
+): [] {
+    payrollId = disclose(id);
+    employerAddress = disclose(employer);
+    payrollMonth = disclose(month);
+    totalEmployees = disclose(numEmployees);
+    claimCount = 0;
+}
+
+// Employee claims their allocation
+// Proves eligibility without revealing the amount
+export circuit claimPayment(
+    employeeAddress: Opaque<"string">
+): [] {
+    // Check employee has an allocation via private witness
+    const amount = getAllocation(employeeAddress);
+    assert(amount > 0, "Not eligible for this payroll");
+
+    // Mark as claimed in private state
+    markClaimed(employeeAddress);
+
+    // Increment public claim count
+    claimCount = claimCount + 1;
+}

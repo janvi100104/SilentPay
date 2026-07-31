@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSING
+  READY
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ClaimStatus {
+  NOT_CLAIMED
+  CLAIMED
+  EXPIRED
+}
+
+enum UserRole {
+  EMPLOYER
+  EMPLOYEE
+}
+
+enum NotificationType {
+  SUCCESS
+  INFO
+  WARNING
+  ERROR
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────
+
+model Company {
+  id              String   @id @default(uuid())
+  name            String   @db.VarChar(120)
+  slug            String   @unique @db.VarChar(80)
+  ownerWallet     String   @unique @db.VarChar(120)
+  email           String?  @db.VarChar(150)
+  logoUrl         String?  @db.Text
+  website         String?  @db.Text
+  timezone        String   @default("UTC") @db.VarChar(50)
+  payrollCurrency String   @default("USDC") @db.VarChar(20)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  employees       Employee[]
+  payrolls        Payroll[]
+  walletSessions  WalletSession[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+}
+
+model Employee {
+  id             String         @id @default(uuid())
+  companyId      String
+  fullName       String         @db.VarChar(120)
+  email          String?        @db.VarChar(150)
+  walletAddress  String         @unique @db.VarChar(120)
+  designation    String?        @db.VarChar(100)
+  department     String?        @db.VarChar(80)
+  joinedAt       DateTime?
+  status         EmployeeStatus @default(ACTIVE)
+  avatarUrl      String?        @db.Text
+  notes          String?        @db.Text
+  lastClaimAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  payrollItems   PayrollItem[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([department])
+}
+
+model Payroll {
+  id               String        @id @default(uuid())
+  companyId        String
+  title            String        @db.VarChar(120)
+  payrollMonth     DateTime
+  employeeCount    Int           @default(0)
+  claimedCount     Int           @default(0)
+  status           PayrollStatus @default(DRAFT)
+  contractAddress  String?       @db.VarChar(150)
+  transactionHash  String?       @db.VarChar(200)
+  proofReference   String?       @db.VarChar(200)
+  notes            String?       @db.Text
+  createdBy        String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  items            PayrollItem[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([payrollMonth])
+  @@index([createdBy])
+}
+
+model PayrollItem {
+  id                String      @id @default(uuid())
+  payrollId         String
+  employeeId        String
+  claimStatus       ClaimStatus @default(NOT_CLAIMED)
+  claimedAt         DateTime?
+  midnightReference String?     @db.VarChar(150)
+  proofVerified     Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  payroll           Payroll     @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employee          Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([payrollId, employeeId])
+  @@index([payrollId])
+  @@index([employeeId])
+  @@index([claimStatus])
+}
+
+model WalletSession {
+  id            String    @id @default(uuid())
+  companyId     String
+  walletAddress String    @db.VarChar(120)
+  role          UserRole  @default(EMPLOYEE)
+  expiresAt     DateTime
+  lastSeenAt    DateTime  @default(now())
+  ipAddress     String?   @db.VarChar(45)
+  userAgent     String?   @db.Text
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([walletAddress])
+  @@index([role])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  companyId  String
+  employeeId String?
+  type       NotificationType @default(INFO)
+  title      String           @db.VarChar(120)
+  message    String           @db.Text
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  // Relations
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([type])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  companyId   String
+  actorWallet String   @db.VarChar(120)
+  action      String   @db.VarChar(100)
+  entity      String?  @db.VarChar(80)
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([actorWallet])
+  @@index([action])
+  @@index([createdAt])
+}
