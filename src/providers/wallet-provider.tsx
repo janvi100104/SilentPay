@@ -19,7 +19,26 @@ interface WalletContextType extends WalletState {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 const WALLET_STORAGE_KEY = 'silentpay_wallet';
-const TARGET_NETWORK = 'preprod';
+
+function findWallet(): { wallet: any; key: string } | null {
+  const midnight = (window as any).midnight;
+  if (!midnight) return null;
+
+  // Check known keys first
+  if (midnight.mnLace) return { wallet: midnight.mnLace, key: 'mnLace' };
+  if (midnight['1am']) return { wallet: midnight['1am'], key: '1am' };
+
+  // Scan all keys for anything with connect/enable
+  for (const key of Object.keys(midnight)) {
+    const candidate = midnight[key];
+    if (candidate && typeof candidate === 'object') {
+      if (typeof candidate.connect === 'function' || typeof candidate.enable === 'function') {
+        return { wallet: candidate, key };
+      }
+    }
+  }
+  return null;
+}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<WalletState>({
@@ -57,57 +76,104 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      // The Lace wallet injects under window.midnight.mnLace
-      const wallet = (window as any).midnight?.mnLace;
-      if (!wallet) {
+      // Debug: log what the wallet extension provides
+      const midnight = (window as any).midnight;
+      console.log('[SilentPay] window.midnight:', midnight ? Object.keys(midnight) : 'undefined');
+
+      // Try to find wallet immediately
+      let found = findWallet();
+      if (found) {
+        console.log(`[SilentPay] Found wallet under window.midnight.${found.key}`);
+      }
+
+      // If not found, wait up to 5 seconds for async extension injection
+      if (!found) {
+        console.log('[SilentPay] Wallet not found yet, waiting for injection...');
+        for (let i = 0; i < 50; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          found = findWallet();
+          if (found) {
+            console.log(`[SilentPay] Found wallet after ${i * 100}ms under: ${found.key}`);
+            break;
+          }
+        }
+      }
+
+      if (!found) {
+        const midnightKeys = midnight ? Object.keys(midnight) : [];
         throw new Error(
-          'Lace Wallet not detected. Make sure the Lace extension is installed and enabled.\n\n' +
-          'Extension: https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk\n\n' +
-          'After installing, refresh this page.'
+          `Lace Wallet not detected.\n\n` +
+          `window.midnight keys: [${midnightKeys.join(', ')}] || empty\n\n` +
+          `Checklist:\n` +
+          `1. Is the Lace extension installed?\n` +
+          `2. Is it enabled in chrome://extensions?\n` +
+          `3. Have you created/unlocked a wallet in Lace?\n` +
+          `4. Try refreshing this page\n\n` +
+          `Extension: https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk`
         );
       }
 
-      // New DApp Connector API (CAIP-372): connect(networkId)
-      // This MUST be called synchronously in the click handler — the browser
-      // blocks popups if we await anything before calling it.
-      let api: any;
-      if (typeof wallet.connect === 'function') {
-        api = await wallet.connect(TARGET_NETWORK);
-      } else if (typeof wallet.enable === 'function') {
-        // Fallback to old API for older wallet versions
-        api = await wallet.enable();
-      } else {
-        throw new Error('Wallet does not support connect() or enable()');
+      const { wallet } = found;
+
+      // Official pattern: connect() first, THEN setNetworkId() from wallet's own status.
+      // setNetworkId() BEFORE connect() causes "Network ID mismatch".
+      // Try networks in order per official docs: preprod, undeployed, preview
+      let api: any = null;
+      const errors: string[] = [];
+      const networks = ['preprod', 'undeployed', 'preview'];
+
+      for (const netId of networks) {
+        try {
+          api = await wallet.connect(netId);
+          console.log(`[SilentPay] Connected via connect("${netId}")`);
+          break;
+        } catch (e: any) {
+          const msg = e?.message ?? String(e);
+          console.log(`[SilentPay] connect("${netId}") failed:`, msg);
+          errors.push(`connect("${netId}"): ${msg}`);
+          api = null;
+        }
       }
 
-      // Get wallet state — try new API first, then old
+      if (!api) {
+        throw new Error(`All connection attempts failed: ${errors.join(' | ')}`);
+      }
+
+      // Now align SDK to wallet's actual network (official pattern)
+      try {
+        const status = await api.getConnectionStatus();
+        console.log(`[SilentPay] Wallet network: "${status.networkId}"`);
+        setNetworkId(status.networkId);
+      } catch (e: any) {
+        console.warn('[SilentPay] getConnectionStatus failed:', e?.message);
+        setNetworkId('preprod');
+      }
+
+      console.log('[SilentPay] Connected, API methods:', Object.keys(api).filter((k: string) => typeof api[k] === 'function'));
+
+      // Get wallet state
       let address: string | null = null;
       let network: string | null = null;
-
       if (typeof api.getConnectionStatus === 'function') {
-        // New API: use getConnectionStatus() and getUnshieldedAddress()
         const status = await api.getConnectionStatus();
         network = status.networkId;
-        if (network) setNetworkId(network);
-
+        console.log(`[SilentPay] Wallet network: "${network}"`);
         if (typeof api.getUnshieldedAddress === 'function') {
           address = await api.getUnshieldedAddress();
-        } else if (typeof api.state === 'function') {
-          const s = await api.state();
-          address = s.address;
         }
-      } else if (typeof api.state === 'function') {
-        // Old API: use state()
+      }
+
+      // Fallback to old API
+      if (!address && typeof api.state === 'function') {
         const s = await api.state();
-        address = s.address;
-        network = TARGET_NETWORK;
+        address = s?.address;
+        if (!network) network = s?.networkId || 'preprod';
       }
 
       if (!address) {
         throw new Error('No address found. Please unlock your wallet.');
       }
 
-      // Save to localStorage
       localStorage.setItem(
         WALLET_STORAGE_KEY,
         JSON.stringify({ address, networkId: network, timestamp: Date.now() })
@@ -122,6 +188,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to connect wallet';
+      console.error('[SilentPay] Connect error:', message);
       setState((prev) => ({
         ...prev,
         isConnecting: false,
@@ -131,11 +198,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const disconnect = useCallback(() => {
-    // Try to call wallet's disconnect method
     try {
-      const wallet = (window as any).midnight?.mnLace;
-      if (typeof wallet?.disconnect === 'function') {
-        wallet.disconnect();
+      const found = findWallet();
+      if (found && typeof found.wallet.disconnect === 'function') {
+        found.wallet.disconnect();
       }
     } catch {
       // Ignore
