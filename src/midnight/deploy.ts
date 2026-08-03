@@ -11,6 +11,7 @@ import { WebSocket } from 'ws';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { firstValueFrom, filter, throttleTime } from 'rxjs';
 
 // Enable WebSocket for wallet sync
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -21,8 +22,9 @@ if (typeof globalThis.WebSocket === 'undefined') {
 // Iterator incompatibilities are patched in the specific SDK files that need them.
 
 import { resolveNetwork, getOrCreateSeed, getDeployment } from './network.js';
-import { createWallet, persistWalletState } from './wallet.js';
+import { createWallet, persistWalletState, unshieldedToken } from './wallet.js';
 import { deployPayrollContract, getWalletBalance } from '../services/midnight-service.js';
+import type { WalletContext } from './wallet.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,7 +37,6 @@ async function waitForProofServer(url: string, maxRetries = 30): Promise<void> {
     } catch {
       // proof server might not have /health, try just connecting
     }
-    // Also check if port is listening via a simple fetch
     try {
       const res = await fetch(healthUrl);
       if (res.status < 500) return;
@@ -47,6 +48,76 @@ async function waitForProofServer(url: string, maxRetries = 30): Promise<void> {
   }
   process.stdout.write('\n');
   throw new Error(`Proof server at ${url} not ready after ${maxRetries} retries`);
+}
+
+/**
+ * Register NIGHT UTXOs for DUST generation on Preview/Preprod.
+ * NIGHT tokens don't automatically produce DUST — they must be registered
+ * via an on-chain transaction. After registration, DUST accrues over time.
+ */
+async function registerForDustGeneration(walletCtx: WalletContext): Promise<void> {
+  const state = await walletCtx.wallet.waitForSyncedState();
+
+  // Check if DUST is already available
+  if (state.dust.balance(new Date()) > 0n) {
+    console.log('  ✅ DUST already available — no registration needed.\n');
+    return;
+  }
+
+  // Find NIGHT UTXOs not yet registered for DUST generation
+  const unregisteredCoins = state.unshielded.availableCoins.filter(
+    (coin: any) => coin.meta?.registeredForDustGeneration !== true,
+  );
+
+  if (unregisteredCoins.length === 0) {
+    console.log('  ℹ All NIGHT already registered for DUST. Waiting for DUST to accrue...\n');
+  } else {
+    console.log(`  📝 Registering ${unregisteredCoins.length} NIGHT UTXO(s) for DUST generation...`);
+
+    // Get the dust address
+    const dustAddress = await walletCtx.wallet.dust.getAddress();
+    console.log(`     DUST address: ${dustAddress}\n`);
+
+    try {
+      const recipe = await walletCtx.wallet.registerNightUtxosForDustGeneration(
+        unregisteredCoins,
+        walletCtx.unshieldedKeystore.getPublicKey(),
+        (payload: Uint8Array) => walletCtx.unshieldedKeystore.signData(payload),
+      );
+      const finalized = await walletCtx.wallet.finalizeRecipe(recipe);
+      const txId = await walletCtx.wallet.submitTransaction(finalized);
+      console.log(`  ✅ Registration transaction submitted: ${txId}\n`);
+    } catch (err: any) {
+      console.error(`  ⚠ Registration failed: ${err.message}`);
+      console.error('     Continuing — DUST may still accrue if already registered.\n');
+    }
+  }
+
+  // Wait for DUST to become non-zero (poll every 10s, up to 5 minutes)
+  console.log('  ⏳ Waiting for DUST to accrue (this takes 1-2 minutes)...');
+  const dustStart = Date.now();
+  const maxWait = 300_000;
+
+  try {
+    await Promise.race([
+      firstValueFrom(
+        walletCtx.wallet.state().pipe(
+          throttleTime(10_000),
+          filter((s) => s.isSynced),
+          filter((s) => s.dust.balance(new Date()) > 0n),
+        ),
+      ).then(() => {
+        const elapsed = ((Date.now() - dustStart) / 1000).toFixed(0);
+        console.log(`  ✅ DUST available after ${elapsed}s\n`);
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('DUST generation timeout')), maxWait),
+      ),
+    ]);
+  } catch {
+    const elapsed = ((Date.now() - dustStart) / 1000).toFixed(0);
+    console.log(`  ⚠ DUST still 0 after ${elapsed}s. Deploy may fail.\n`);
+  }
 }
 
 async function main() {
@@ -73,7 +144,7 @@ async function main() {
   // 3. Create wallet and sync
   console.log('  👛 Creating wallet...');
   const seed = getOrCreateSeed(network);
-  const walletCtx = await createWallet({ network, networkConfig: config, seed, restore: false });
+  const walletCtx = await createWallet({ network, networkConfig: config, seed, restore: true });
   console.log('  📡 Syncing wallet with network (up to 5 min)...');
   const syncStart = Date.now();
   try {
@@ -84,7 +155,6 @@ async function main() {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Wallet sync timeout (300s)')), 300_000)),
     ]);
   } catch (err: any) {
-    // Shielded wallet sync may fail — non-fatal for deployment
     process.stdout.write(`\n  ⚠ Wallet sync warning: ${err?.message?.slice(0, 120) || 'unknown'} (continuing)\n`);
   }
   await persistWalletState(network, walletCtx);
@@ -101,37 +171,19 @@ async function main() {
   }
   console.log(`  💰 Wallet balance: tNIGHT=${balance.tNight}, DUST=${balance.dust}\n`);
 
-  // On Preview/Preprod, DUST is generated from tNIGHT over time.
-  // If DUST is 0, wait for it to generate before deploying.
-  if (balance.dust === 0n && (network === 'preview' || network === 'preprod')) {
-    console.log('  ⏳ DUST not yet available. Waiting for DUST generation from tNIGHT...');
-    console.log('     (This can take several minutes after wallet registration)\n');
-    const dustStart = Date.now();
-    const maxDustWait = 600_000; // 10 minutes max
-    const pollInterval = 15_000; // check every 15 seconds
-    let dustBalance = 0n;
-    while (Date.now() - dustStart < maxDustWait) {
-      await new Promise((r) => setTimeout(r, pollInterval));
-      try {
-        const b = await Promise.race([
-          getWalletBalance(walletCtx),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15_000)),
-        ]);
-        dustBalance = b.dust;
-        const elapsed = ((Date.now() - dustStart) / 1000).toFixed(0);
-        process.stdout.write(`     DUST: ${dustBalance} (${elapsed}s elapsed)\r`);
-        if (dustBalance > 0n) {
-          balance = b;
-          console.log(`\n  ✅ DUST available after ${elapsed}s\n`);
-          break;
-        }
-      } catch {
-        // keep waiting
-      }
+  // 3b. On Preview/Preprod, register NIGHT for DUST generation if DUST is 0
+  if (balance.dust === 0n && balance.tNight > 0n && (network === 'preview' || network === 'preprod')) {
+    await registerForDustGeneration(walletCtx);
+    // Re-check balance after registration
+    try {
+      balance = await Promise.race([
+        getWalletBalance(walletCtx),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30_000)),
+      ]);
+    } catch {
+      // keep going
     }
-    if (dustBalance === 0n) {
-      console.log('\n  ⚠ DUST still 0 after waiting. Attempting deploy anyway...\n');
-    }
+    console.log(`  💰 Wallet balance after DUST registration: tNIGHT=${balance.tNight}, DUST=${balance.dust}\n`);
   }
 
   // 4. Deploy contract
