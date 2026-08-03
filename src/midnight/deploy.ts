@@ -101,6 +101,39 @@ async function main() {
   }
   console.log(`  💰 Wallet balance: tNIGHT=${balance.tNight}, DUST=${balance.dust}\n`);
 
+  // On Preview/Preprod, DUST is generated from tNIGHT over time.
+  // If DUST is 0, wait for it to generate before deploying.
+  if (balance.dust === 0n && (network === 'preview' || network === 'preprod')) {
+    console.log('  ⏳ DUST not yet available. Waiting for DUST generation from tNIGHT...');
+    console.log('     (This can take several minutes after wallet registration)\n');
+    const dustStart = Date.now();
+    const maxDustWait = 600_000; // 10 minutes max
+    const pollInterval = 15_000; // check every 15 seconds
+    let dustBalance = 0n;
+    while (Date.now() - dustStart < maxDustWait) {
+      await new Promise((r) => setTimeout(r, pollInterval));
+      try {
+        const b = await Promise.race([
+          getWalletBalance(walletCtx),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15_000)),
+        ]);
+        dustBalance = b.dust;
+        const elapsed = ((Date.now() - dustStart) / 1000).toFixed(0);
+        process.stdout.write(`     DUST: ${dustBalance} (${elapsed}s elapsed)\r`);
+        if (dustBalance > 0n) {
+          balance = b;
+          console.log(`\n  ✅ DUST available after ${elapsed}s\n`);
+          break;
+        }
+      } catch {
+        // keep waiting
+      }
+    }
+    if (dustBalance === 0n) {
+      console.log('\n  ⚠ DUST still 0 after waiting. Attempting deploy anyway...\n');
+    }
+  }
+
   // 4. Deploy contract
   console.log('  📝 Deploying payroll contract...');
   const { contractAddress } = await deployPayrollContract(walletCtx, network);
