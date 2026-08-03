@@ -171,8 +171,10 @@ The circuits are `createPayroll` and `claimPayment`. A deployment run prints the
 
 ```text
 ✅ Contract deployed successfully!
-   Address: <network-specific-address>
+   Address: 57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b
 ```
+
+The deployed contract address on the local devnet is `57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b`.
 
 The UI screenshots above are included in `docs/screenshots/`. Screenshots of the compile output, test output, and deployed address are separate submission evidence and still belong under `docs/evidence/`; do not use fabricated addresses or output.
 

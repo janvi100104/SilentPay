@@ -17,6 +17,9 @@ if (typeof globalThis.WebSocket === 'undefined') {
   (globalThis as any).WebSocket = WebSocket;
 }
 
+// No global Map.prototype patches — they break WASM ledger FFI.
+// Iterator incompatibilities are patched in the specific SDK files that need them.
+
 import { resolveNetwork, getOrCreateSeed, getDeployment } from './network.js';
 import { createWallet, persistWalletState } from './wallet.js';
 import { deployPayrollContract, getWalletBalance } from '../services/midnight-service.js';
@@ -71,16 +74,31 @@ async function main() {
   console.log('  👛 Creating wallet...');
   const seed = getOrCreateSeed(network);
   const walletCtx = await createWallet({ network, networkConfig: config, seed, restore: false });
-  console.log('  📡 Syncing wallet with network...');
+  console.log('  📡 Syncing wallet with network (up to 5 min)...');
+  const syncStart = Date.now();
   try {
-    await walletCtx.wallet.waitForSyncedState();
+    await Promise.race([
+      walletCtx.wallet.waitForSyncedState().then(() => {
+        console.log(`  ✅ Wallet synced in ${((Date.now() - syncStart) / 1000).toFixed(1)}s`);
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Wallet sync timeout (300s)')), 300_000)),
+    ]);
   } catch (err: any) {
-    // Shielded wallet sync may fail on Node 20 — non-fatal for deployment
-    process.stdout.write(`\n  ⚠ Wallet sync warning: ${err?.message?.slice(0, 80) || 'unknown'} (continuing)\n`);
+    // Shielded wallet sync may fail — non-fatal for deployment
+    process.stdout.write(`\n  ⚠ Wallet sync warning: ${err?.message?.slice(0, 120) || 'unknown'} (continuing)\n`);
   }
   await persistWalletState(network, walletCtx);
 
-  const balance = await getWalletBalance(walletCtx);
+  let balance;
+  try {
+    balance = await Promise.race([
+      getWalletBalance(walletCtx),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Balance check timeout')), 30_000)),
+    ]);
+  } catch {
+    balance = { tNight: 0n, dust: 0n };
+    process.stdout.write('  ⚠ Could not read balance (continuing)\n');
+  }
   console.log(`  💰 Wallet balance: tNIGHT=${balance.tNight}, DUST=${balance.dust}\n`);
 
   // 4. Deploy contract
@@ -100,6 +118,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error('\n❌ Deploy failed:', err.message);
+  if (err.stack) console.error(err.stack);
   if (err.message?.includes('ECONNREFUSED')) {
     console.error('   Make sure Docker is running and the devnet is up: docker compose up -d');
   }
