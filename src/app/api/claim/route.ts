@@ -100,7 +100,17 @@ export async function POST(request: NextRequest) {
       try {
         const { createWalletContext, connectToPayrollContract } = await import('@/services/midnight-service');
         const walletCtx = await createWalletContext();
-        const { contract } = await connectToPayrollContract(walletCtx, payroll.contractAddress);
+
+        // Load employee allocation from DB and convert dollars to bigint cents
+        // so the contract witness getAllocation() returns the real amount
+        const allocationCents = BigInt(Math.round(payrollItem.amount * 100));
+        const allocations = { [employee.walletAddress]: allocationCents };
+
+        const { contract } = await connectToPayrollContract(
+          walletCtx,
+          payroll.contractAddress,
+          allocations,
+        );
 
         // Call claimPayment circuit on-chain
         const txResult = await contract.callTx.claimPayment(employee.walletAddress);
@@ -118,6 +128,7 @@ export async function POST(request: NextRequest) {
       validatedData.payrollId,
       employee.id,
       midnightReference ?? undefined,
+      proofVerified,
     );
 
     return NextResponse.json({

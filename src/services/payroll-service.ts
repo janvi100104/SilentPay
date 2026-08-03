@@ -174,7 +174,12 @@ export class PayrollService {
   /**
    * Record a claim
    */
-  static async recordClaim(payrollId: string, employeeId: string, midnightReference?: string) {
+  static async recordClaim(
+    payrollId: string,
+    employeeId: string,
+    midnightReference?: string,
+    proofVerified = false,
+  ) {
     return prisma.$transaction(async (tx) => {
       // Update payroll item
       const item = await tx.payrollItem.update({
@@ -188,7 +193,7 @@ export class PayrollService {
           claimStatus: ClaimStatus.CLAIMED,
           claimedAt: new Date(),
           midnightReference,
-          proofVerified: true,
+          proofVerified,
         },
       });
 

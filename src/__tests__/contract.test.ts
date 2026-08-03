@@ -54,10 +54,6 @@ describe('Midnight Contract', () => {
     });
 
     it('should have managed directory structure', () => {
-      // After compilation, managed directories should exist
-      const helloWorldDir = path.join(managedDir, 'hello-world');
-      expect(fs.existsSync(helloWorldDir)).toBe(true);
-
       const payrollDir = path.join(managedDir, 'payroll');
       expect(fs.existsSync(payrollDir)).toBe(true);
       expect(fs.existsSync(path.join(payrollDir, 'contract', 'index.js'))).toBe(true);

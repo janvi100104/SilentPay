@@ -6,7 +6,7 @@ SilentPay is a privacy-first payroll application built with Next.js and Midnight
 
 - Repository: [github.com/janvi100104/SilentPay](https://github.com/janvi100104/SilentPay)
 - Live demo: **Not available yet**
-- Network: Midnight local devnet by default, with Preview and Preprod configuration
+- Network: Midnight Preview network (deployed), with local devnet and Preprod configuration available
 
 ## Product idea
 
@@ -19,8 +19,10 @@ The full product proposal is in [`docs/01-product-requirements.md`](docs/01-prod
 - Next.js dashboard for companies, employees, payroll, claims, and history
 - PostgreSQL-backed application metadata through Prisma
 - Compact payroll contract with `createPayroll` and `claimPayment` circuits
+- `claimPayment` circuit wired end-to-end: allocation loaded from DB, ZK proof executed on-chain, result recorded
+- Midnight Preview network deployment (active)
 - Local Midnight devnet using Docker Compose
-- Midnight Preview and Preprod network configuration
+- Lace wallet connect/disconnect support
 - Jest coverage for contract structure, validation, employee, payroll, and claim flows
 
 ## UI screenshots
@@ -108,24 +110,18 @@ docker run --name silentpay-db \
 
 ### Compile and deploy the Midnight contract
 
-Start the local Midnight devnet, compile the payroll contract, and deploy it with:
+The Compact compiler must be installed (`~/.local/bin/compact`). Compile the payroll contract and deploy to the Preview network:
 
 ```bash
-docker compose up -d --wait
-npm run compile
+compact compile contracts/payroll.compact contracts/managed/payroll
 npm run midnight:deploy
 ```
 
-The deployment command prints the contract address and stores network-specific deployment state in `.midnight-state.json`, which is gitignored. To run the full setup orchestrator, including database setup:
+The deployment command registers for DUST generation, waits for balance, and stores the contract address in `.midnight-state.json`. To deploy to a local devnet instead:
 
 ```bash
-npm run midnight:setup
-```
-
-If PostgreSQL is already configured and only the Midnight services are needed:
-
-```bash
-npm run midnight:setup -- --skip-db
+docker compose up -d --wait
+npm run midnight:deploy -- undeployed
 ```
 
 After deployment, inspect the network and address with:
@@ -133,6 +129,7 @@ After deployment, inspect the network and address with:
 ```bash
 npm run midnight:network
 npm run midnight:cli
+npm run midnight:check-balance
 ```
 
 The local devnet uses a well-known genesis seed with pre-minted development funds. Never use that seed on Preview, Preprod, Mainnet, or any network holding real value.
@@ -141,8 +138,8 @@ The local devnet uses a well-known genesis seed with pre-minted development fund
 
 | Network | Purpose | Funding |
 | --- | --- | --- |
+| `preview` | Public Midnight Preview network (active deployment) | Use the [Preview faucet](https://faucet.preview.midnight.network/) |
 | `undeployed` | Local Docker devnet | Genesis wallet is pre-funded |
-| `preview` | Public Midnight Preview network | Use the configured Preview faucet |
 | `preprod` | Public Midnight Preprod network | Use the configured Preprod faucet |
 
 Switch the active network with `npm run midnight:network -- preview` or `npm run midnight:network -- undeployed`. Public-network wallet seeds and deployment records are stored in `.midnight-state.json`; back up any seed that controls funds you care about.
@@ -155,30 +152,36 @@ Run the automated tests with:
 npm test -- --runInBand
 ```
 
-The current local verification result is **5 test suites passed and 42 tests passed**. The repository also contains an end-to-end check for a deployed local contract:
+**5 test suites, 42 tests passed.** The test suite covers:
+
+- Contract structure and syntax validation
+- Zod schema validation for all API inputs
+- Employee service CRUD operations
+- Payroll service lifecycle and claim recording
+- Claim flow end-to-end (including `proofVerified` status tracking)
+
+The end-to-end check reconnects to the deployed contract and reads its on-chain state:
 
 ```bash
 npm run test:e2e
 ```
 
-Compile output currently confirms two contract circuits:
+Compile output confirms two contract circuits:
 
 ```text
 Compiling 2 circuits:
 ```
 
-The circuits are `createPayroll` and `claimPayment`. A deployment run prints the deployed address in the form:
+The circuits are `createPayroll` and `claimPayment`. The `claimPayment` circuit is wired from the frontend API route through to the on-chain contract — employee allocations are loaded from the database, fed into the contract witnesses, and the ZK proof is executed on-chain.
 
-```text
-✅ Contract deployed successfully!
-   Address: 57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b
-```
+The UI screenshots above are included in `docs/screenshots/`. Screenshots of the compile output, test output, and deployed address are in `docs/evidence/` — do not use fabricated addresses or output.
 
-The deployed contract address on the local devnet is `57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b`.
+### Deployed contract addresses
 
-The deployed contract address on the **Midnight Preview** network is `972fbdf9ad5adcb3bd363d6528cf68dadf960b2fc962e5f619bb94a452f5fd8a`.
-
-The UI screenshots above are included in `docs/screenshots/`. Screenshots of the compile output, test output, and deployed address are separate submission evidence and still belong under `docs/evidence/`; do not use fabricated addresses or output.
+| Network | Address |
+| --- | --- |
+| Preview (active) | `972fbdf9ad5adcb3bd363d6528cf68dadf960b2fc962e5f619bb94a452f5fd8a` |
+| Local devnet | `57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b` |
 
 ## Available scripts
 
@@ -187,27 +190,32 @@ The UI screenshots above are included in `docs/screenshots/`. Screenshots of the
 | `npm run dev` | Start the Next.js development server |
 | `npm run build` | Build the Next.js application |
 | `npm run compile` | Compile `contracts/payroll.compact` |
-| `npm run midnight:setup` | Start services, compile, configure the database, and deploy |
-| `npm run midnight:deploy` | Deploy the compiled payroll contract |
+| `npm run midnight:deploy` | Deploy the compiled payroll contract to the active network |
 | `npm run midnight:cli` | Inspect status, balance, deployment, and network state |
 | `npm run midnight:network` | Show or switch the active Midnight network |
 | `npm run midnight:check-balance` | Print the wallet's tNIGHT and DUST balances |
 | `npm run test` | Run Jest tests |
-| `npm run test:e2e` | Check a deployed contract and read its state |
-| `npm run lint` | Run ESLint; existing generated and application lint issues remain to be cleaned up |
+| `npm run test:e2e` | End-to-end check: reconnect to deployed contract, read on-chain state |
+| `npm run lint` | Run ESLint |
 | `npm run clean` | Remove generated contract and local Midnight state |
 
 ## Project structure
 
 ```text
-contracts/payroll.compact       Compact payroll contract
-src/app/                        Next.js pages and API routes
-src/features/                   Employee, payroll, and claim UI
-src/services/                   Application and Midnight services
-src/midnight/                   Network, wallet, setup, and deploy scripts
-src/**/__tests__/               Jest tests
-docs/                           Product, architecture, schema, and implementation documents
-docker-compose.yml              Local Midnight node, indexer, and proof server
+contracts/payroll.compact           Compact payroll contract (createPayroll + claimPayment)
+contracts/managed/payroll/         Compiled contract artifacts (JS, keys, zkir)
+src/app/                           Next.js pages and API routes
+src/app/api/claim/                 Claim API — wires claimPayment circuit with DB allocations
+src/app/api/payroll/               Payroll API — deploys contract with private allocations
+src/features/                      Employee, payroll, and claim UI components
+src/services/                      Application services (employee, payroll, midnight)
+src/midnight/                      Network config, wallet, deploy, and CLI scripts
+src/__tests__/                     Contract and validation tests
+src/services/__tests__/            Service-level tests (claim flow, payroll, employee)
+docs/                              Product, architecture, schema, and implementation docs
+docs/screenshots/                  UI screenshots
+scripts/e2e-check.ts               End-to-end contract verification script
+docker-compose.yml                 Local Midnight node, indexer, and proof server
 ```
 
 ## License
