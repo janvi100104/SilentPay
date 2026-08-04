@@ -16,30 +16,33 @@ interface RoleContextValue {
   isEmployer: boolean;
   isEmployee: boolean;
   loading: boolean;
+  refetchCompany: () => Promise<void>;
 }
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const walletAddress = useWalletAddress();
-  const { company, loading: companyLoading } = useCompany();
+  const { company, loading: companyLoading, refetch } = useCompany();
   const [role, setRoleState] = useState<ActiveRole>('employee');
   const [initialized, setInitialized] = useState(false);
 
   const hasCompany = !!company;
 
-  // Restore from localStorage on mount
+  // Restore from localStorage on mount, and auto-switch when company appears
   useEffect(() => {
     if (companyLoading) return;
 
     const saved = localStorage.getItem(ROLE_STORAGE_KEY);
 
-    if (saved === 'employer' && hasCompany) {
+    if (hasCompany) {
+      // Always switch to employer when a company exists
       setRoleState('employer');
+      localStorage.setItem(ROLE_STORAGE_KEY, 'employer');
     } else if (saved === 'employee') {
       setRoleState('employee');
     } else {
-      setRoleState(hasCompany ? 'employer' : 'employee');
+      setRoleState('employee');
     }
 
     setInitialized(true);
@@ -68,6 +71,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         isEmployer: role === 'employer' && hasCompany,
         isEmployee: role === 'employee' || !hasCompany,
         loading: companyLoading || !initialized,
+        refetchCompany: refetch,
       }}
     >
       {children}

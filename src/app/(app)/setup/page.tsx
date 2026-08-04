@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCompany } from '@/hooks/use-company';
 import { useWalletAddress } from '@/hooks/use-wallet';
+import { useRole } from '@/providers/role-provider';
 
 export default function SetupPage() {
   const router = useRouter();
   const walletAddress = useWalletAddress();
   const { createCompany } = useCompany();
+  const { refetchCompany } = useRole();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [email, setEmail] = useState('');
@@ -51,6 +53,7 @@ export default function SetupPage() {
     try {
       setLoading(true);
       await createCompany({ name: name.trim(), slug: slug.trim(), email: email.trim() || undefined });
+      await refetchCompany();
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create company');

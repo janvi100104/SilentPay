@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useWalletAddress } from './use-wallet';
 
 interface Company {
@@ -64,5 +64,11 @@ export function useCompany() {
 
   const noCompany = !loading && walletAddress && !company;
 
-  return { company, loading, error, companyId: company?.id ?? null, noCompany, createCompany };
+  const refetch = useCallback(async () => {
+    if (walletAddress) {
+      await fetchCompanyByWallet(walletAddress);
+    }
+  }, [walletAddress]);
+
+  return { company, loading, error, companyId: company?.id ?? null, noCompany, createCompany, refetch };
 }
