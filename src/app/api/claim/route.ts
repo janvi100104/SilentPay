@@ -8,24 +8,72 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const walletAddress = searchParams.get('walletAddress');
+    const companyId = searchParams.get('companyId');
     const status = searchParams.get('status');
 
+    const { default: prisma } = await import('@/lib/db');
+
+    // Admin view: fetch all claims for a company
+    if (companyId) {
+      const payrollItems = await prisma.payrollItem.findMany({
+        where: {
+          payroll: { companyId },
+        },
+        select: {
+          id: true,
+          payrollId: true,
+          employeeId: true,
+          amount: true,
+          claimStatus: true,
+          claimedAt: true,
+          midnightReference: true,
+          proofVerified: true,
+          payroll: {
+            select: {
+              id: true,
+              title: true,
+              payrollMonth: true,
+              status: true,
+              employeeCount: true,
+              claimedCount: true,
+            },
+          },
+          employee: {
+            select: {
+              id: true,
+              fullName: true,
+              walletAddress: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const serialized = payrollItems.map((item) => ({
+        ...item,
+        amount: item.amount != null ? Number(item.amount) : null,
+      }));
+
+      const filtered = status
+        ? serialized.filter((item) => item.claimStatus === status)
+        : serialized;
+
+      return NextResponse.json(filtered);
+    }
+
+    // Employee view: fetch claims for a single wallet
     if (!walletAddress) {
       return NextResponse.json(
-        { error: 'walletAddress is required' },
+        { error: 'walletAddress or companyId is required' },
         { status: 400 }
       );
     }
 
-    // Find employee by wallet (case-insensitive)
     const employee = await EmployeeService.getByWalletAddress(walletAddress);
     if (!employee) {
-      console.log('[Claim GET] No employee found for wallet:', walletAddress);
       return NextResponse.json([]);
     }
 
-    // Direct query: get all payroll items for this employee (any status)
-    const { default: prisma } = await import('@/lib/db');
     const payrollItems = await prisma.payrollItem.findMany({
       where: { employeeId: employee.id },
       select: {
@@ -56,15 +104,11 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Convert Decimal amounts to plain numbers for JSON
     const serialized = payrollItems.map((item) => ({
       ...item,
       amount: item.amount != null ? Number(item.amount) : null,
     }));
 
-    console.log(`[Claim GET] Employee ${employee.id} (${employee.fullName}) — found ${serialized.length} items`);
-
-    // Filter by claim status if provided
     const filtered = status
       ? serialized.filter((item) => item.claimStatus === status)
       : serialized;

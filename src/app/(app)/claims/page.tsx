@@ -4,17 +4,21 @@ import { useState } from 'react';
 import { ClaimForm } from '@/features/claims/claim-form';
 import { ClaimHistory } from '@/features/claims/claim-history';
 import { AvailableClaims } from '@/features/claims/available-claims';
+import { EmployerClaims } from '@/features/claims/employer-claims';
 import { useWalletAddress } from '@/hooks/use-wallet';
+import { useCompany } from '@/hooks/use-company';
 
 export default function ClaimsPage() {
   const walletAddress = useWalletAddress();
+  const { company } = useCompany();
   const [manualAddress, setManualAddress] = useState('');
-  const [activeTab, setActiveTab] = useState<'claim' | 'history'>('claim');
+  const [activeTab, setActiveTab] = useState<'claim' | 'history' | 'all'>('claim');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Use connected wallet address or manual input — ensure plain string
   const rawAddress = walletAddress || manualAddress;
   const activeAddress = typeof rawAddress === 'string' ? rawAddress : String(rawAddress || '');
+
+  const isEmployer = !!company;
 
   const handleClaim = async (payrollId: string) => {
     if (!activeAddress) return;
@@ -36,7 +40,6 @@ export default function ClaimsPage() {
         return;
       }
 
-      // Refresh both lists and switch to history tab so user can see the claim
       setRefreshKey((k) => k + 1);
       setActiveTab('history');
     } catch (err) {
@@ -44,6 +47,60 @@ export default function ClaimsPage() {
     }
   };
 
+  // ─── Employer View ────────────────────────────────────────────
+  if (isEmployer) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Claims</h1>
+          <p className="text-muted-foreground">
+            Monitor employee claim activity across all payrolls
+          </p>
+        </div>
+
+        {walletAddress && (
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+            <div className="w-2 h-2 bg-success rounded-full" />
+            <span className="text-sm">
+              Employer: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+            </span>
+            <span className="badge badge-success ml-2">{company.name}</span>
+          </div>
+        )}
+
+        <div className="flex gap-4 border-b">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`pb-3 px-4 font-medium border-b-2 transition-colors ${
+              activeTab === 'all'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            All Employee Claims
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`pb-3 px-4 font-medium border-b-2 transition-colors ${
+              activeTab === 'history'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            My Payrolls
+          </button>
+        </div>
+
+        {activeTab === 'all' ? (
+          <EmployerClaims key={refreshKey} companyId={company.id} refreshKey={refreshKey} />
+        ) : (
+          <ClaimHistory key={refreshKey} walletAddress={activeAddress} />
+        )}
+      </div>
+    );
+  }
+
+  // ─── Employee View ────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div>

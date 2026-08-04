@@ -201,15 +201,28 @@ export class PayrollService {
         },
       });
 
-      // Increment claimed count on payroll
-      await tx.payroll.update({
+      // Increment claimed count and check if all claimed
+      const updatedPayroll = await tx.payroll.update({
         where: { id: payrollId },
         data: {
           claimedCount: {
             increment: 1,
           },
         },
+        select: {
+          id: true,
+          employeeCount: true,
+          claimedCount: true,
+        },
       });
+
+      // Auto-complete payroll if all employees have claimed
+      if (updatedPayroll.claimedCount >= updatedPayroll.employeeCount) {
+        await tx.payroll.update({
+          where: { id: payrollId },
+          data: { status: PayrollStatus.COMPLETED },
+        });
+      }
 
       // Update employee's last claim time
       await tx.employee.update({
@@ -225,13 +238,14 @@ export class PayrollService {
         await tx.auditLog.create({
           data: {
             companyId: payroll.companyId,
-            actorWallet: '', // Will be set by caller
+            actorWallet: '',
             action: 'CLAIM_COMPLETED',
             entity: 'PayrollItem',
             entityId: item.id,
             metadata: {
               payrollId,
               employeeId,
+              allClaimed: updatedPayroll.claimedCount >= updatedPayroll.employeeCount,
             },
           },
         });
