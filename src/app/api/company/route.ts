@@ -95,6 +95,9 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error('Error creating company:', error);
-    return NextResponse.json({ error: 'Failed to create company' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create company', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
