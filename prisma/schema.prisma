@@ -124,6 +124,7 @@ model PayrollItem {
   id                String      @id @default(uuid())
   payrollId         String
   employeeId        String
+  amount            Decimal?    @db.Decimal(12, 2)
   claimStatus       ClaimStatus @default(NOT_CLAIMED)
   claimedAt         DateTime?
   midnightReference String?     @db.VarChar(150)

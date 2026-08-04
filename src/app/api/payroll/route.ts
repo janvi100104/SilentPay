@@ -40,14 +40,30 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createPayrollSchema.parse(body);
 
-    // Create payroll in database
-    const payroll = await PayrollService.create({
-      companyId: validatedData.companyId,
-      title: validatedData.title,
-      payrollMonth: new Date(validatedData.payrollMonth),
-      createdBy: validatedData.createdBy,
-      employeeIds: validatedData.employeeIds,
-    });
+      // Create payroll in database
+      const payroll = await PayrollService.create({
+        companyId: validatedData.companyId,
+        title: validatedData.title,
+        payrollMonth: new Date(validatedData.payrollMonth),
+        createdBy: validatedData.createdBy,
+        employeeIds: validatedData.employeeIds,
+      });
+
+      // Persist per-employee allocation amounts so claim route can load them
+      if (validatedData.allocations) {
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+        try {
+          for (const [empId, amount] of Object.entries(validatedData.allocations)) {
+            await prisma.payrollItem.updateMany({
+              where: { payrollId: payroll.id, employeeId: empId },
+              data: { amount },
+            });
+          }
+        } finally {
+          await prisma.$disconnect();
+        }
+      }
 
     // Optionally deploy Midnight contract for this payroll
     let contractAddress: string | null = null;

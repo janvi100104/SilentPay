@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
 
         // Load employee allocation from DB and convert dollars to bigint cents
         // so the contract witness getAllocation() returns the real amount
-        const allocationCents = BigInt(Math.round(payrollItem.amount * 100));
+        const allocationDollars = Number(payrollItem.amount ?? 0);
+        const allocationCents = BigInt(Math.round(allocationDollars * 100));
         const allocations = { [employee.walletAddress]: allocationCents };
 
         const { contract } = await connectToPayrollContract(

@@ -218,6 +218,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         error: null,
         networkId: network,
       });
+
+      // Redirect to dashboard after successful connection
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to connect wallet';
       console.error('[SilentPay] Connect error:', message);
