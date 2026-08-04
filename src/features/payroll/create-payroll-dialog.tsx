@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createPayrollSchema, CreatePayrollInput } from '@/types/payroll';
 import { Employee } from '@/types/employee';
+import { useWalletAddress } from '@/hooks/use-wallet';
+import { walletAddressError, isValidWalletAddress } from '@/lib/wallet-validation';
 
 interface CreatePayrollDialogProps {
   open: boolean;
@@ -11,19 +13,22 @@ interface CreatePayrollDialogProps {
   onPayrollCreated: () => void;
 }
 
+const emptyForm = {
+  title: '',
+  payrollMonth: '',
+};
+
 export function CreatePayrollDialog({
   open,
   onOpenChange,
   companyId,
   onPayrollCreated,
 }: CreatePayrollDialogProps) {
+  const walletAddress = useWalletAddress();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
-  const [formData, setFormData] = useState({
-    title: '',
-    payrollMonth: '',
-    createdBy: '',
-  });
+  const [formData, setFormData] = useState(emptyForm);
+  const [createdBy, setCreatedBy] = useState('');
   const [deployContract, setDeployContract] = useState(false);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -33,8 +38,17 @@ export function CreatePayrollDialog({
   useEffect(() => {
     if (open) {
       fetchEmployees();
+      if (walletAddress) {
+        setCreatedBy(walletAddress);
+      }
+      setFormData(emptyForm);
+      setSelectedEmployees([]);
+      setDeployContract(false);
+      setAllocations({});
+      setErrors({});
+      setServerError(null);
     }
-  }, [open, companyId]);
+  }, [open, companyId, walletAddress]);
 
   const fetchEmployees = async () => {
     try {
@@ -53,10 +67,34 @@ export function CreatePayrollDialog({
     setSelectedEmployees((prev) =>
       prev.includes(id) ? prev.filter((eid) => eid !== id) : [...prev, id]
     );
+    if (errors.employeeIds) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.employeeIds;
+        return next;
+      });
+    }
   };
 
   const selectAll = () => {
     setSelectedEmployees(employees.map((emp) => emp.id));
+    if (errors.employeeIds) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.employeeIds;
+        return next;
+      });
+    }
+  };
+
+  const clearError = (field: string) => {
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,11 +102,18 @@ export function CreatePayrollDialog({
     setErrors({});
     setServerError(null);
 
+    // Validate wallet before anything else
+    const walletErr = walletAddressError(createdBy);
+    if (walletErr) {
+      setErrors({ createdBy: walletErr });
+      return;
+    }
+
     const payload: CreatePayrollInput & { deployContract?: boolean; allocations?: Record<string, number> } = {
       companyId,
       title: formData.title,
       payrollMonth: formData.payrollMonth,
-      createdBy: formData.createdBy,
+      createdBy: createdBy.trim(),
       employeeIds: selectedEmployees,
       deployContract,
       allocations: deployContract ? allocations : undefined,
@@ -104,10 +149,6 @@ export function CreatePayrollDialog({
         console.warn('Midnight deployment warning:', data.midnightError);
       }
 
-      setFormData({ title: '', payrollMonth: '', createdBy: '' });
-      setSelectedEmployees([]);
-      setDeployContract(false);
-      setAllocations({});
       onPayrollCreated();
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'An error occurred');
@@ -136,7 +177,10 @@ export function CreatePayrollDialog({
             <input
               type="text"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value });
+                clearError('title');
+              }}
               className="input"
               placeholder="July 2026 Payroll"
             />
@@ -150,7 +194,10 @@ export function CreatePayrollDialog({
             <input
               type="month"
               value={formData.payrollMonth}
-              onChange={(e) => setFormData({ ...formData, payrollMonth: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, payrollMonth: e.target.value });
+                clearError('payrollMonth');
+              }}
               className="input"
             />
             {errors.payrollMonth && (
@@ -162,11 +209,24 @@ export function CreatePayrollDialog({
             <label className="label">Your Wallet Address *</label>
             <input
               type="text"
-              value={formData.createdBy}
-              onChange={(e) => setFormData({ ...formData, createdBy: e.target.value })}
+              value={createdBy}
+              onChange={(e) => {
+                setCreatedBy(e.target.value);
+                clearError('createdBy');
+              }}
               className="input"
               placeholder="addr_test..."
             />
+            {walletAddress && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Auto-filled from connected wallet
+              </p>
+            )}
+            {createdBy && !isValidWalletAddress(createdBy) && (
+              <p className="text-xs text-destructive mt-1">
+                Midnight address must start with mn_ (e.g. mn_addr_preview1...)
+              </p>
+            )}
             {errors.createdBy && (
               <p className="text-sm text-destructive mt-1">{errors.createdBy}</p>
             )}

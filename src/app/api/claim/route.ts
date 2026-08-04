@@ -17,19 +17,57 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get employee by wallet address
+    // Find employee by wallet (case-insensitive)
     const employee = await EmployeeService.getByWalletAddress(walletAddress);
     if (!employee) {
+      console.log('[Claim GET] No employee found for wallet:', walletAddress);
       return NextResponse.json([]);
     }
 
-    // Get payrolls for this employee
-    const payrollItems = await PayrollService.getByEmployeeWallet(walletAddress);
-    
-    // Filter by status if provided
+    // Direct query: get all payroll items for this employee (any status)
+    const { default: prisma } = await import('@/lib/db');
+    const payrollItems = await prisma.payrollItem.findMany({
+      where: { employeeId: employee.id },
+      select: {
+        id: true,
+        payrollId: true,
+        employeeId: true,
+        amount: true,
+        claimStatus: true,
+        claimedAt: true,
+        midnightReference: true,
+        proofVerified: true,
+        payroll: {
+          select: {
+            id: true,
+            title: true,
+            payrollMonth: true,
+            status: true,
+          },
+        },
+        employee: {
+          select: {
+            id: true,
+            fullName: true,
+            walletAddress: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Convert Decimal amounts to plain numbers for JSON
+    const serialized = payrollItems.map((item) => ({
+      ...item,
+      amount: item.amount != null ? Number(item.amount) : null,
+    }));
+
+    console.log(`[Claim GET] Employee ${employee.id} (${employee.fullName}) — found ${serialized.length} items`);
+
+    // Filter by claim status if provided
     const filtered = status
-      ? payrollItems.filter((item) => item.claimStatus === status)
-      : payrollItems;
+      ? serialized.filter((item) => item.claimStatus === status)
+      : serialized;
 
     return NextResponse.json(filtered);
   } catch (error) {
@@ -49,11 +87,13 @@ export async function POST(request: NextRequest) {
     // 1. Find employee by wallet address
     const employee = await EmployeeService.getByWalletAddress(validatedData.walletAddress);
     if (!employee) {
+      console.log('[Claim POST] Employee not found for wallet:', validatedData.walletAddress);
       return NextResponse.json(
         { error: 'Employee not found' },
         { status: 404 }
       );
     }
+    console.log(`[Claim POST] Found employee: ${employee.id} (${employee.fullName})`);
 
     // 2. Check if payroll exists and is ready
     const payroll = await PayrollService.getById(validatedData.payrollId);
@@ -131,6 +171,8 @@ export async function POST(request: NextRequest) {
       midnightReference ?? undefined,
       proofVerified,
     );
+
+    console.log(`[Claim POST] Claim recorded: payroll=${validatedData.payrollId} employee=${employee.id} status=${updatedItem.claimStatus}`);
 
     return NextResponse.json({
       success: true,

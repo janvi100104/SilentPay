@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createEmployeeSchema, CreateEmployeeInput } from '@/types/employee';
-import { useWalletAddress } from '@/hooks/use-wallet';
+import { isValidWalletAddress } from '@/lib/wallet-validation';
 
 interface AddEmployeeDialogProps {
   open: boolean;
@@ -11,31 +11,51 @@ interface AddEmployeeDialogProps {
   onEmployeeAdded: () => void;
 }
 
+const emptyForm = {
+  fullName: '',
+  walletAddress: '',
+  email: '',
+  designation: '',
+  department: '',
+  joinedAt: '',
+};
+
 export function AddEmployeeDialog({
   open,
   onOpenChange,
   companyId,
   onEmployeeAdded,
 }: AddEmployeeDialogProps) {
-  const walletAddress = useWalletAddress();
   const [formData, setFormData] = useState<CreateEmployeeInput>({
     companyId,
-    fullName: '',
-    walletAddress: '',
-    email: '',
-    designation: '',
-    department: '',
-    joinedAt: '',
+    ...emptyForm,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && walletAddress) {
-      setFormData((prev) => ({ ...prev, walletAddress }));
+    setFormData((prev) => ({ ...prev, companyId }));
+  }, [companyId]);
+
+  useEffect(() => {
+    if (open) {
+      setFormData({ companyId, ...emptyForm });
+      setErrors({});
+      setServerError(null);
     }
-  }, [open, walletAddress]);
+  }, [open, companyId]);
+
+  const handleChange = (field: keyof typeof emptyForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,15 +87,6 @@ export function AddEmployeeDialog({
         throw new Error(data.error || 'Failed to create employee');
       }
 
-      setFormData({
-        companyId,
-        fullName: '',
-        walletAddress: walletAddress || '',
-        email: '',
-        designation: '',
-        department: '',
-        joinedAt: '',
-      });
       onEmployeeAdded();
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'An error occurred');
@@ -85,6 +96,8 @@ export function AddEmployeeDialog({
   };
 
   if (!open) return null;
+
+  const hasErrors = serverError || Object.keys(errors).length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -98,13 +111,19 @@ export function AddEmployeeDialog({
           </div>
         )}
 
+        {hasErrors && !serverError && (
+          <div className="mb-4 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+            Please fix the errors below.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label">Full Name *</label>
             <input
               type="text"
               value={formData.fullName}
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              onChange={(e) => handleChange('fullName', e.target.value)}
               className="input"
               placeholder="John Doe"
             />
@@ -118,14 +137,16 @@ export function AddEmployeeDialog({
             <input
               type="text"
               value={formData.walletAddress}
-              onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
+              onChange={(e) => handleChange('walletAddress', e.target.value)}
               className="input"
               placeholder="addr_test..."
-              readOnly={!!walletAddress}
             />
-            {walletAddress && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Auto-filled from connected wallet
+            <p className="text-xs text-muted-foreground mt-1">
+              The employee&apos;s Midnight wallet address for receiving payments
+            </p>
+            {formData.walletAddress && !isValidWalletAddress(formData.walletAddress) && (
+              <p className="text-xs text-destructive mt-1">
+                Midnight address must start with mn_ (e.g. mn_addr_preview1...)
               </p>
             )}
             {errors.walletAddress && (
@@ -138,7 +159,7 @@ export function AddEmployeeDialog({
             <input
               type="email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) => handleChange('email', e.target.value)}
               className="input"
               placeholder="john@example.com"
             />
@@ -153,7 +174,7 @@ export function AddEmployeeDialog({
               <input
                 type="text"
                 value={formData.designation}
-                onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                onChange={(e) => handleChange('designation', e.target.value)}
                 className="input"
                 placeholder="Software Engineer"
               />
@@ -163,7 +184,7 @@ export function AddEmployeeDialog({
               <input
                 type="text"
                 value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                onChange={(e) => handleChange('department', e.target.value)}
                 className="input"
                 placeholder="Engineering"
               />
@@ -175,7 +196,7 @@ export function AddEmployeeDialog({
             <input
               type="date"
               value={formData.joinedAt}
-              onChange={(e) => setFormData({ ...formData, joinedAt: e.target.value })}
+              onChange={(e) => handleChange('joinedAt', e.target.value)}
               className="input"
             />
           </div>

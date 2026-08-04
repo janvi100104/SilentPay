@@ -1,7 +1,13 @@
 import { z } from 'zod';
+import { isValidWalletAddress } from '@/lib/wallet-validation';
 
 export const claimPaymentSchema = z.object({
-  walletAddress: z.string().min(1, 'Wallet address is required'),
+  walletAddress: z
+    .string()
+    .min(1, 'Wallet address is required')
+    .refine((val) => isValidWalletAddress(val), {
+      message: 'Invalid Midnight wallet address — must start with mn_',
+    }),
   payrollId: z.string().uuid('Invalid payroll ID'),
 });
 

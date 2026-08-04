@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const employee = await EmployeeService.create({
       companyId: validatedData.companyId,
       fullName: validatedData.fullName,
-      walletAddress: validatedData.walletAddress,
+      walletAddress: validatedData.walletAddress.trim(),
       email: validatedData.email || undefined,
       designation: validatedData.designation || undefined,
       department: validatedData.department || undefined,

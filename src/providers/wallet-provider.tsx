@@ -23,12 +23,8 @@ const WALLET_STORAGE_KEY = 'silentpay_wallet';
 function findWallet(): { wallet: any; key: string } | null {
   const midnight = (window as any).midnight;
   if (!midnight) return null;
-
-  // Check known keys first
   if (midnight.mnLace) return { wallet: midnight.mnLace, key: 'mnLace' };
   if (midnight['1am']) return { wallet: midnight['1am'], key: '1am' };
-
-  // Scan all keys for anything with connect/enable
   for (const key of Object.keys(midnight)) {
     const candidate = midnight[key];
     if (candidate && typeof candidate === 'object') {
@@ -36,6 +32,17 @@ function findWallet(): { wallet: any; key: string } | null {
         return { wallet: candidate, key };
       }
     }
+  }
+  return null;
+}
+
+function toAddressString(value: any): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    if (typeof value.unshieldedAddress === 'string') return value.unshieldedAddress;
+    if (typeof value.address === 'string') return value.address;
+    if (typeof value.addr === 'string') return value.addr;
   }
   return null;
 }
@@ -54,9 +61,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem(WALLET_STORAGE_KEY);
     if (saved) {
       try {
-        const { address, networkId, timestamp } = JSON.parse(saved);
+        const { address: storedAddress, networkId, timestamp } = JSON.parse(saved);
         const isValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
-        if (isValid && address) {
+        const address = toAddressString(storedAddress);
+        if (isValid && address && !address.startsWith('[object')) {
           setState((prev) => ({
             ...prev,
             address,
@@ -76,134 +84,93 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      // Debug: log what the wallet extension provides
       const midnight = (window as any).midnight;
-      console.log('[SilentPay] window.midnight:', midnight ? Object.keys(midnight) : 'undefined');
-
-      // Try to find wallet immediately
       let found = findWallet();
-      if (found) {
-        console.log(`[SilentPay] Found wallet under window.midnight.${found.key}`);
-      }
 
-      // If not found, wait up to 5 seconds for async extension injection
       if (!found) {
-        console.log('[SilentPay] Wallet not found yet, waiting for injection...');
         for (let i = 0; i < 50; i++) {
           await new Promise((r) => setTimeout(r, 100));
           found = findWallet();
-          if (found) {
-            console.log(`[SilentPay] Found wallet after ${i * 100}ms under: ${found.key}`);
-            break;
-          }
+          if (found) break;
         }
       }
 
       if (!found) {
-        const midnightKeys = midnight ? Object.keys(midnight) : [];
-        throw new Error(
-          `Lace Wallet not detected.\n\n` +
-          `window.midnight keys: [${midnightKeys.join(', ')}] || empty\n\n` +
-          `Checklist:\n` +
-          `1. Is the Lace extension installed?\n` +
-          `2. Is it enabled in chrome://extensions?\n` +
-          `3. Have you created/unlocked a wallet in Lace?\n` +
-          `4. Try refreshing this page\n\n` +
-          `Extension: https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk`
-        );
+        throw new Error('Lace Wallet not detected. Please install and unlock it.');
       }
 
       const { wallet } = found;
 
-      // Comprehensive debug: dump everything about the wallet object
-      const allOwnKeys = Object.getOwnPropertyNames(wallet);
-      const proto = Object.getPrototypeOf(wallet);
-      const protoKeys = proto ? Object.getOwnPropertyNames(proto) : [];
-      const allMethods = [...new Set([...allOwnKeys, ...protoKeys])].filter(
-        (k) => typeof (wallet as any)[k] === 'function'
-      );
-      const allGetters = allOwnKeys.filter((k) => {
-        try {
-          const desc = Object.getOwnPropertyDescriptor(wallet, k);
-          return desc && typeof desc.get === 'function';
-        } catch { return false; }
-      });
-      console.log('[SilentPay] Wallet methods:', allMethods);
-      console.log('[SilentPay] Wallet getters:', allGetters);
-      console.log('[SilentPay] Wallet own keys:', allOwnKeys);
-
-      // Check for common wallet methods and their return values
-      for (const fn of ['isEnabled', 'isEnabled', 'serviceUriConfig', 'apiVersion', 'name', 'rdns', 'icon']) {
-        try {
-          const val = (wallet as any)[fn];
-          if (typeof val === 'function') {
-            const result = await val.call(wallet);
-            console.log(`[SilentPay] wallet.${fn}() =`, result);
-          } else if (val !== undefined) {
-            console.log(`[SilentPay] wallet.${fn} =`, val);
-          }
-        } catch (e: any) {
-          console.log(`[SilentPay] wallet.${fn} error:`, e?.message);
-        }
-      }
-
-      // Now try connect - but also check what happens with different error types
       let api: any = null;
-      const errors: string[] = [];
-
-      for (const netId of ['preprod', 'undeployed', 'preview', 'mainnet']) {
+      for (const netId of ['preview', 'preprod', 'undeployed', 'mainnet']) {
         try {
           api = await wallet.connect(netId);
-          console.log(`[SilentPay] Connected via connect("${netId}")!`);
           break;
-        } catch (e: any) {
-          const msg = e?.message ?? String(e);
-          const stack = e?.stack?.split('\n').slice(0, 3).join(' | ');
-          console.log(`[SilentPay] connect("${netId}") error:`, msg, stack);
-          errors.push(`connect("${netId}"): ${msg}`);
+        } catch {
           api = null;
         }
       }
 
       if (!api) {
-        throw new Error(`Wallet connect failed: ${errors.join(' | ')}`);
+        throw new Error('Wallet connect failed. Please unlock your wallet and try again.');
       }
 
-      // Now align SDK to wallet's actual network (official pattern)
+      // Get network
+      let network: string | null = null;
       try {
         const status = await api.getConnectionStatus();
-        console.log(`[SilentPay] Wallet network: "${status.networkId}"`);
+        network = status?.networkId ?? null;
         setNetworkId(status.networkId);
-      } catch (e: any) {
-        console.warn('[SilentPay] getConnectionStatus failed:', e?.message);
+      } catch {
         setNetworkId('preprod');
       }
 
-      console.log('[SilentPay] Connected, API methods:', Object.keys(api).filter((k: string) => typeof api[k] === 'function'));
-
-      // Get wallet state
+      // Get address — try multiple methods, keep the first real string
       let address: string | null = null;
-      let network: string | null = null;
-      if (typeof api.getConnectionStatus === 'function') {
-        const status = await api.getConnectionStatus();
-        network = status?.networkId ?? null;
-        console.log(`[SilentPay] Wallet status:`, status);
-      }
-      if (typeof api.getUnshieldedAddress === 'function') {
+
+      // Method 1: getUnshieldedAddress
+      try {
         const raw = await api.getUnshieldedAddress();
-        address = typeof raw === 'string' ? raw : raw?.address ?? raw?.toString?.() ?? String(raw);
-        console.log(`[SilentPay] Unshielded address:`, typeof raw, raw);
+        address = toAddressString(raw);
+      } catch {}
+
+      // Method 2: state()
+      if (!address && typeof api.state === 'function') {
+        try {
+          const s = await api.state();
+          address = toAddressString(s?.address);
+          if (!network) network = s?.networkId || 'preprod';
+        } catch {}
       }
 
-      // Fallback to old API
-      if (!address && typeof api.state === 'function') {
-        const s = await api.state();
-        address = typeof s?.address === 'string' ? s.address : String(s?.address ?? '');
-        if (!network) network = s?.networkId || 'preprod';
+      // Method 3: scan all API properties for a bech32 address string
+      if (!address) {
+        const allKeys = [...Object.getOwnPropertyNames(api)];
+        let proto = Object.getPrototypeOf(api);
+        while (proto && proto !== Object.prototype) {
+          allKeys.push(...Object.getOwnPropertyNames(proto));
+          proto = Object.getPrototypeOf(proto);
+        }
+        for (const key of [...new Set(allKeys)]) {
+          try {
+            const val = api[key];
+            if (typeof val === 'string' && val.length > 10 && !val.startsWith('[object')) {
+              address = val;
+              break;
+            }
+            if (val && typeof val === 'object') {
+              const nested = toAddressString(val.address ?? val);
+              if (nested && !nested.startsWith('[object')) {
+                address = nested;
+                break;
+              }
+            }
+          } catch {}
+        }
       }
 
       if (!address) {
-        throw new Error('No address found. Please unlock your wallet.');
+        throw new Error('Could not retrieve wallet address.');
       }
 
       localStorage.setItem(
@@ -219,7 +186,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         networkId: network,
       });
 
-      // Redirect to dashboard after successful connection
       if (typeof window !== 'undefined') {
         window.location.href = '/dashboard';
       }
@@ -240,10 +206,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (found && typeof found.wallet.disconnect === 'function') {
         found.wallet.disconnect();
       }
-    } catch {
-      // Ignore
-    }
-
+    } catch {}
     localStorage.removeItem(WALLET_STORAGE_KEY);
     setState({
       address: null,

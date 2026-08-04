@@ -1,9 +1,18 @@
 import { z } from 'zod';
+import { isValidWalletAddress } from '@/lib/wallet-validation';
+
+const walletAddressField = z
+  .string()
+  .min(1, 'Wallet address is required')
+  .max(150, 'Wallet address too long')
+  .refine((val) => isValidWalletAddress(val), {
+    message: 'Invalid Midnight wallet address — must start with mn_',
+  });
 
 export const createEmployeeSchema = z.object({
   companyId: z.string().uuid('Invalid company ID'),
   fullName: z.string().min(1, 'Name is required').max(120, 'Name too long'),
-  walletAddress: z.string().min(1, 'Wallet address is required').max(120, 'Wallet address too long'),
+  walletAddress: walletAddressField,
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   designation: z.string().max(100, 'Designation too long').optional().or(z.literal('')),
   department: z.string().max(80, 'Department too long').optional().or(z.literal('')),
@@ -12,7 +21,7 @@ export const createEmployeeSchema = z.object({
 
 export const updateEmployeeSchema = z.object({
   fullName: z.string().min(1, 'Name is required').max(120, 'Name too long').optional(),
-  walletAddress: z.string().min(1, 'Wallet address is required').max(120, 'Wallet address too long').optional(),
+  walletAddress: walletAddressField.optional(),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   designation: z.string().max(100, 'Designation too long').optional().or(z.literal('')),
   department: z.string().max(80, 'Department too long').optional().or(z.literal('')),

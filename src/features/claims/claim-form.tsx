@@ -100,8 +100,7 @@ export function ClaimForm({ initialWalletAddress = '', onClaimSuccess }: ClaimFo
             value={formData.walletAddress}
             onChange={(e) => setFormData({ ...formData, walletAddress: e.target.value })}
             className="input"
-            placeholder="addr_test..."
-            readOnly={!!initialWalletAddress}
+            placeholder="mn_addr_preview1..."
           />
           {errors.walletAddress && (
             <p className="text-sm text-destructive mt-1">{errors.walletAddress}</p>

@@ -15,57 +15,55 @@ interface HistoryEntry {
   proofVerified?: boolean;
 }
 
-const DEMO_COMPANY_ID_FALLBACK = '00000000-0000-0000-0000-000000000001';
-
-export default function HistoryPage() {
+function HistoryContent() {
   const walletAddress = useWalletAddress();
-  const { companyId: fetchedCompanyId } = useCompany();
+  const { companyId } = useCompany();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'payroll' | 'claim'>('all');
 
-  const companyId = fetchedCompanyId || DEMO_COMPANY_ID_FALLBACK;
-
   useEffect(() => {
-    if (companyId) {
-      fetchHistory();
-    }
-  }, [companyId]);
+    fetchHistory();
+  }, [companyId, walletAddress]);
 
   const fetchHistory = async () => {
     try {
       setLoading(true);
 
-      // Fetch payrolls as employer
-      const payrollRes = await fetch(`/api/payroll?companyId=${companyId}`);
-      const payrolls = payrollRes.ok ? await payrollRes.json() : [];
+      const entries: HistoryEntry[] = [];
 
-      // Fetch claims as employee (only if wallet is connected)
-      let claims: any[] = [];
-      if (walletAddress) {
-        const claimRes = await fetch(`/api/claim?walletAddress=${encodeURIComponent(walletAddress)}`);
-        claims = claimRes.ok ? await claimRes.json() : [];
+      // Fetch payrolls as employer (only if company exists)
+      if (companyId) {
+        const payrollRes = await fetch(`/api/payroll?companyId=${companyId}`);
+        const payrolls = payrollRes.ok ? await payrollRes.json() : [];
+        entries.push(
+          ...payrolls.map((p: any) => ({
+            id: p.id,
+            type: 'payroll' as const,
+            title: p.title,
+            status: p.status,
+            date: p.createdAt,
+            contractAddress: p.contractAddress,
+          }))
+        );
       }
 
-      const entries: HistoryEntry[] = [
-        ...payrolls.map((p: any) => ({
-          id: p.id,
-          type: 'payroll' as const,
-          title: p.title,
-          status: p.status,
-          date: p.createdAt,
-          contractAddress: p.contractAddress,
-        })),
-        ...claims.map((c: any) => ({
-          id: c.id,
-          type: 'claim' as const,
-          title: c.payroll?.title || 'Payroll Claim',
-          status: c.claimStatus,
-          date: c.claimedAt || c.createdAt,
-          midnightReference: c.midnightReference,
-          proofVerified: c.proofVerified,
-        })),
-      ];
+      // Fetch claims as employee (only if wallet is connected)
+      if (walletAddress) {
+        const claimRes = await fetch(`/api/claim?walletAddress=${encodeURIComponent(walletAddress)}`);
+        const claims = claimRes.ok ? await claimRes.json() : [];
+        entries.push(
+          ...claims.map((c: any) => ({
+            id: c.id,
+            type: 'claim' as const,
+            title: c.payroll?.title || 'Payroll Claim',
+            status: c.claimStatus,
+            date: c.claimedAt || c.createdAt,
+            midnightReference: c.midnightReference,
+            proofVerified: c.proofVerified,
+          }))
+        );
+      }
 
       // Sort by date descending
       entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -190,4 +188,8 @@ export default function HistoryPage() {
       )}
     </div>
   );
+}
+
+export default function HistoryPage() {
+  return <HistoryContent />;
 }

@@ -32,12 +32,15 @@ export function ClaimHistory({ walletAddress }: ClaimHistoryProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchClaims();
+    if (walletAddress) {
+      fetchClaims();
+    }
   }, [walletAddress]);
 
   const fetchClaims = async () => {
     try {
       setLoading(true);
+      setError(null);
       const params = new URLSearchParams({ walletAddress });
       const response = await fetch(`/api/claim?${params}`);
       
@@ -46,8 +49,8 @@ export function ClaimHistory({ walletAddress }: ClaimHistoryProps) {
       }
       
       const data = await response.json();
+      console.log(`[ClaimHistory] Fetched ${data.length} items for wallet:`, walletAddress);
       setClaims(data);
-      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -70,7 +73,16 @@ export function ClaimHistory({ walletAddress }: ClaimHistoryProps) {
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Claim History</h3>
-        <span className="badge badge-secondary">{claims.length} Claims</span>
+        <div className="flex items-center gap-2">
+          <span className="badge badge-secondary">{claims.length} Claims</span>
+          <button onClick={fetchClaims} className="btn-accent text-xs" disabled={loading}>
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-3 text-xs text-muted-foreground font-mono">
+        Wallet: {walletAddress.slice(0, 12)}...{walletAddress.slice(-6)}
       </div>
 
       {error && (

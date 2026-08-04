@@ -5,7 +5,7 @@ import { z } from 'zod';
 const createPayrollSchema = z.object({
   companyId: z.string().uuid(),
   title: z.string().min(1).max(120),
-  payrollMonth: z.string().datetime(),
+  payrollMonth: z.string().min(1),
   createdBy: z.string().min(1),
   employeeIds: z.array(z.string().uuid()).min(1),
   deployContract: z.boolean().optional().default(false),
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       const payroll = await PayrollService.create({
         companyId: validatedData.companyId,
         title: validatedData.title,
-        payrollMonth: new Date(validatedData.payrollMonth),
+        payrollMonth: new Date(validatedData.payrollMonth + '-01'),
         createdBy: validatedData.createdBy,
         employeeIds: validatedData.employeeIds,
       });
@@ -64,6 +64,13 @@ export async function POST(request: NextRequest) {
           await prisma.$disconnect();
         }
       }
+
+    // If no contract deployment requested, mark payroll as READY immediately
+    // so employees can claim. If contract deployment is requested, the status
+    // is set to READY after successful deployment below.
+    if (!validatedData.deployContract) {
+      await PayrollService.updateStatus(payroll.id, 'READY');
+    }
 
     // Optionally deploy Midnight contract for this payroll
     let contractAddress: string | null = null;

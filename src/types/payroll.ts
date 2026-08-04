@@ -1,10 +1,18 @@
 import { z } from 'zod';
+import { isValidWalletAddress } from '@/lib/wallet-validation';
+
+const walletAddressField = z
+  .string()
+  .min(1, 'Wallet address is required')
+  .refine((val) => isValidWalletAddress(val), {
+    message: 'Invalid Midnight wallet address — must start with mn_',
+  });
 
 export const createPayrollSchema = z.object({
   companyId: z.string().uuid('Invalid company ID'),
   title: z.string().min(1, 'Title is required').max(120, 'Title too long'),
   payrollMonth: z.string().min(1, 'Payroll month is required'),
-  createdBy: z.string().min(1, 'Creator wallet is required'),
+  createdBy: walletAddressField,
   employeeIds: z.array(z.string().uuid()).min(1, 'Select at least one employee'),
 });
 

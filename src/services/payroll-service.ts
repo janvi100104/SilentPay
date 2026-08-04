@@ -21,6 +21,7 @@ export interface PayrollWithItems {
   items: Array<{
     id: string;
     employeeId: string;
+    amount: number | null;
     claimStatus: ClaimStatus;
     claimedAt: Date | null;
     employee: {
@@ -131,11 +132,14 @@ export class PayrollService {
   }
 
   /**
-   * Get payrolls for an employee (by wallet address)
+   * Get payrolls for an employee (by wallet address, case-insensitive)
    */
   static async getByEmployeeWallet(walletAddress: string) {
-    const employee = await prisma.employee.findUnique({
-      where: { walletAddress },
+    const trimmed = walletAddress.trim().toLowerCase();
+    const employee = await prisma.employee.findFirst({
+      where: {
+        walletAddress: { equals: trimmed, mode: 'insensitive' },
+      },
     });
 
     if (!employee) {

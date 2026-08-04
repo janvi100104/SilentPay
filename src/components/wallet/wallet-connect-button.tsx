@@ -2,10 +2,10 @@
 
 import { useWallet } from '@/providers/wallet-provider';
 
-function formatAddress(address: unknown): string {
-  const addr = typeof address === 'string' ? address : String(address ?? '');
-  if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+function formatAddress(address: string | null): string {
+  if (!address) return '';
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export function WalletConnectButton() {
@@ -15,7 +15,10 @@ export function WalletConnectButton() {
   if (isConnected && address) {
     return (
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/50">
+        <div
+          className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/50 cursor-default"
+          title={address}
+        >
           <div className="w-2 h-2 bg-success rounded-full" />
           <span className="text-sm font-medium">{formatAddress(address)}</span>
         </div>

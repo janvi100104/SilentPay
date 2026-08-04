@@ -2,31 +2,10 @@
 
 import { PayrollList } from '@/features/payroll/payroll-list';
 import { useCompany } from '@/hooks/use-company';
+import { RequireCompany } from '@/components/require-company';
 
-export default function PayrollPage() {
-  const { companyId, loading } = useCompany();
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payroll</h1>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!companyId) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payroll</h1>
-          <p className="text-muted-foreground">No company found. Run the seed script first.</p>
-        </div>
-      </div>
-    );
-  }
+function PayrollContent() {
+  const { companyId } = useCompany();
 
   return (
     <div className="space-y-6">
@@ -37,7 +16,15 @@ export default function PayrollPage() {
         </p>
       </div>
 
-      <PayrollList companyId={companyId} />
+      <PayrollList companyId={companyId!} />
     </div>
+  );
+}
+
+export default function PayrollPage() {
+  return (
+    <RequireCompany>
+      <PayrollContent />
+    </RequireCompany>
   );
 }

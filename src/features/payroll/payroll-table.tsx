@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Payroll, PayrollStatus } from '@/types/payroll';
 
 interface PayrollTableProps {
@@ -28,6 +29,32 @@ function formatDate(date: Date | string) {
 }
 
 export function PayrollTable({ payrolls, loading, onRefresh }: PayrollTableProps) {
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const markReady = async (payrollId: string) => {
+    try {
+      setUpdatingId(payrollId);
+      const response = await fetch(`/api/payroll/${payrollId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'READY' }),
+      });
+      if (!response.ok) throw new Error('Failed to update status');
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to mark payroll as ready:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const copyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   if (loading) {
     return (
       <div className="border rounded-lg">
@@ -54,11 +81,12 @@ export function PayrollTable({ payrolls, loading, onRefresh }: PayrollTableProps
         <thead>
           <tr className="border-b bg-muted/50">
             <th className="text-left p-4 font-medium">Title</th>
+            <th className="text-left p-4 font-medium">Payroll ID</th>
             <th className="text-left p-4 font-medium">Month</th>
             <th className="text-left p-4 font-medium">Employees</th>
             <th className="text-left p-4 font-medium">Claims</th>
             <th className="text-left p-4 font-medium">Status</th>
-            <th className="text-left p-4 font-medium">Created</th>
+            <th className="text-left p-4 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -66,6 +94,19 @@ export function PayrollTable({ payrolls, loading, onRefresh }: PayrollTableProps
             <tr key={payroll.id} className="border-b last:border-b-0 hover:bg-muted/30">
               <td className="p-4">
                 <div className="font-medium">{payroll.title}</div>
+              </td>
+              <td className="p-4">
+                <button
+                  onClick={() => copyId(payroll.id)}
+                  className="font-mono text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="Click to copy full ID"
+                >
+                  {copiedId === payroll.id ? (
+                    <span className="text-success">Copied!</span>
+                  ) : (
+                    <span>{payroll.id.slice(0, 8)}...{payroll.id.slice(-4)}</span>
+                  )}
+                </button>
               </td>
               <td className="p-4 text-muted-foreground">
                 {formatDate(payroll.payrollMonth)}
@@ -90,8 +131,16 @@ export function PayrollTable({ payrolls, loading, onRefresh }: PayrollTableProps
                   {payroll.status}
                 </span>
               </td>
-              <td className="p-4 text-muted-foreground text-sm">
-                {formatDate(payroll.createdAt)}
+              <td className="p-4">
+                {payroll.status === 'DRAFT' && (
+                  <button
+                    onClick={() => markReady(payroll.id)}
+                    disabled={updatingId === payroll.id}
+                    className="btn-accent text-xs"
+                  >
+                    {updatingId === payroll.id ? 'Updating...' : 'Mark Ready'}
+                  </button>
+                )}
               </td>
             </tr>
           ))}

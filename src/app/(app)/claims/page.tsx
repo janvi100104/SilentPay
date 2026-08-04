@@ -12,8 +12,9 @@ export default function ClaimsPage() {
   const [activeTab, setActiveTab] = useState<'claim' | 'history'>('claim');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Use connected wallet address or manual input
-  const activeAddress = walletAddress || manualAddress;
+  // Use connected wallet address or manual input — ensure plain string
+  const rawAddress = walletAddress || manualAddress;
+  const activeAddress = typeof rawAddress === 'string' ? rawAddress : String(rawAddress || '');
 
   const handleClaim = async (payrollId: string) => {
     if (!activeAddress) return;
@@ -35,8 +36,9 @@ export default function ClaimsPage() {
         return;
       }
 
-      // Refresh the available claims list
+      // Refresh both lists and switch to history tab so user can see the claim
       setRefreshKey((k) => k + 1);
+      setActiveTab('history');
     } catch (err) {
       alert('Failed to process claim. Please try again.');
     }
@@ -105,10 +107,13 @@ export default function ClaimsPage() {
                 walletAddress={activeAddress}
                 onClaim={handleClaim}
               />
-              <ClaimForm initialWalletAddress={activeAddress} onClaimSuccess={() => setRefreshKey((k) => k + 1)} />
+              <ClaimForm initialWalletAddress={activeAddress} onClaimSuccess={() => {
+                setRefreshKey((k) => k + 1);
+                setActiveTab('history');
+              }} />
             </div>
           ) : (
-            <ClaimHistory walletAddress={activeAddress} />
+            <ClaimHistory key={refreshKey} walletAddress={activeAddress} />
           )}
         </>
       )}

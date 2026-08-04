@@ -62,12 +62,16 @@ export class EmployeeService {
   }
 
   /**
-   * Get an employee by wallet address
+   * Get employee by wallet address (case-insensitive, trimmed)
    */
   static async getByWalletAddress(walletAddress: string) {
-    return prisma.employee.findUnique({
-      where: { walletAddress },
+    const trimmed = walletAddress.trim().toLowerCase();
+    const employee = await prisma.employee.findFirst({
+      where: {
+        walletAddress: { equals: trimmed, mode: 'insensitive' },
+      },
     });
+    return employee;
   }
 
   /**

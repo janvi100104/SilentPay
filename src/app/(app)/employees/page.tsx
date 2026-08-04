@@ -2,31 +2,10 @@
 
 import { EmployeeList } from '@/features/employees/employee-list';
 import { useCompany } from '@/hooks/use-company';
+import { RequireCompany } from '@/components/require-company';
 
-export default function EmployeesPage() {
-  const { companyId, loading } = useCompany();
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!companyId) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-          <p className="text-muted-foreground">No company found. Run the seed script first.</p>
-        </div>
-      </div>
-    );
-  }
+function EmployeesContent() {
+  const { companyId } = useCompany();
 
   return (
     <div className="space-y-6">
@@ -37,7 +16,15 @@ export default function EmployeesPage() {
         </p>
       </div>
 
-      <EmployeeList companyId={companyId} />
+      <EmployeeList companyId={companyId!} />
     </div>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <RequireCompany>
+      <EmployeesContent />
+    </RequireCompany>
   );
 }
