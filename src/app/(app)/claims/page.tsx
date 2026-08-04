@@ -6,19 +6,17 @@ import { ClaimHistory } from '@/features/claims/claim-history';
 import { AvailableClaims } from '@/features/claims/available-claims';
 import { EmployerClaims } from '@/features/claims/employer-claims';
 import { useWalletAddress } from '@/hooks/use-wallet';
-import { useCompany } from '@/hooks/use-company';
+import { useRole } from '@/hooks/use-role';
 
 export default function ClaimsPage() {
   const walletAddress = useWalletAddress();
-  const { company } = useCompany();
+  const { isEmployer, company } = useRole();
   const [manualAddress, setManualAddress] = useState('');
   const [activeTab, setActiveTab] = useState<'claim' | 'history' | 'all'>('claim');
   const [refreshKey, setRefreshKey] = useState(0);
 
   const rawAddress = walletAddress || manualAddress;
   const activeAddress = typeof rawAddress === 'string' ? rawAddress : String(rawAddress || '');
-
-  const isEmployer = !!company;
 
   const handleClaim = async (payrollId: string) => {
     if (!activeAddress) return;
@@ -64,7 +62,7 @@ export default function ClaimsPage() {
             <span className="text-sm">
               Employer: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
             </span>
-            <span className="badge badge-success ml-2">{company.name}</span>
+            {company && <span className="badge badge-success ml-2">{company.name}</span>}
           </div>
         )}
 
@@ -91,7 +89,7 @@ export default function ClaimsPage() {
           </button>
         </div>
 
-        {activeTab === 'all' ? (
+        {activeTab === 'all' && company ? (
           <EmployerClaims key={refreshKey} companyId={company.id} refreshKey={refreshKey} />
         ) : (
           <ClaimHistory key={refreshKey} walletAddress={activeAddress} />

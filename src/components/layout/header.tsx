@@ -2,8 +2,24 @@
 
 import Link from 'next/link';
 import { WalletConnectButton } from '@/components/wallet/wallet-connect-button';
+import { useRole } from '@/hooks/use-role';
+
+const adminLinks = [
+  { name: 'Dashboard', href: '/dashboard' },
+  { name: 'Employees', href: '/employees' },
+  { name: 'Payroll', href: '/payroll' },
+  { name: 'Claims', href: '/claims' },
+];
+
+const employeeLinks = [
+  { name: 'Dashboard', href: '/dashboard' },
+  { name: 'Claims', href: '/claims' },
+];
 
 export function Header() {
+  const { isEmployer } = useRole();
+  const navLinks = isEmployer ? adminLinks : employeeLinks;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
@@ -23,30 +39,15 @@ export function Header() {
           <span className="hidden font-bold sm:inline-block">SilentPay</span>
         </Link>
         <nav className="flex flex-1 items-center space-x-6 text-sm font-medium">
-          <Link
-            href="/dashboard"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/employees"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Employees
-          </Link>
-          <Link
-            href="/payroll"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Payroll
-          </Link>
-          <Link
-            href="/claims"
-            className="transition-colors hover:text-foreground/80 text-foreground/60"
-          >
-            Claims
-          </Link>
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              href={link.href}
+              className="transition-colors hover:text-foreground/80 text-foreground/60"
+            >
+              {link.name}
+            </Link>
+          ))}
         </nav>
         <div className="flex items-center space-x-4">
           <WalletConnectButton />

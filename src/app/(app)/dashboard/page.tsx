@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useWalletAddress } from '@/hooks/use-wallet';
-import { useCompany } from '@/hooks/use-company';
+import { useRole } from '@/hooks/use-role';
 
 interface DashboardStats {
   totalEmployees: number;
@@ -278,9 +279,23 @@ function EmployeeDashboard({ walletAddress }: { walletAddress: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
-        <p className="text-muted-foreground">Your payment overview</p>
+          <h1 className="text-3xl font-bold tracking-tight">Employee Dashboard</h1>
+          <p className="text-muted-foreground">Your payment overview</p>
       </div>
+
+      {/* CTA: Setup your own organization */}
+      <Link href="/setup" className="block">
+        <div className="card p-5 border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer">
+          <div className="flex items-center gap-4">
+            <span className="text-3xl">🏢</span>
+            <div>
+              <p className="font-semibold">Own a business?</p>
+              <p className="text-sm text-muted-foreground">Setup your organization to manage payroll and employees.</p>
+            </div>
+            <span className="ml-auto text-muted-foreground">→</span>
+          </div>
+        </div>
+      </Link>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="card p-6">
@@ -363,9 +378,9 @@ function EmployeeDashboard({ walletAddress }: { walletAddress: string }) {
 
 function DashboardContent() {
   const walletAddress = useWalletAddress();
-  const { company, loading: companyLoading, noCompany } = useCompany();
+  const { isEmployer, company, loading: roleLoading } = useRole();
 
-  if (companyLoading) {
+  if (roleLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -376,17 +391,14 @@ function DashboardContent() {
     );
   }
 
-  // Company owner → admin dashboard
-  if (company) {
+  if (walletAddress && isEmployer && company) {
     return <AdminDashboard companyId={company.id} walletAddress={walletAddress} />;
   }
 
-  // Employee (no company but wallet connected) → employee dashboard
-  if (walletAddress && noCompany) {
+  if (walletAddress) {
     return <EmployeeDashboard walletAddress={walletAddress} />;
   }
 
-  // Not connected
   return (
     <div className="space-y-6">
       <div>
