@@ -5,7 +5,7 @@
 SilentPay is a privacy-first payroll application built with Next.js and Midnight. It lets an employer manage employees, create payroll, and let eligible employees claim payments without publishing individual payment amounts on-chain.
 
 - Repository: [github.com/janvi100104/SilentPay](https://github.com/janvi100104/SilentPay)
-- Live demo: **Not available yet**
+- Live demo: [Watch on Google Drive](https://drive.google.com/file/d/1LjeJZlQXUr8PIbZ-9vMTtl3r6Yn7pFW9/view?usp=sharing)
 - Network: Midnight Preview network (deployed), with local devnet and Preprod configuration available
 
 ## Product idea
@@ -40,6 +40,12 @@ The current application UI includes the following views:
 | Claims | History |
 | --- | --- |
 | ![Payment claims](<docs/screenshots/Screenshot%202026-08-01%20001149.png>) | ![Payroll and claim history](<docs/screenshots/Screenshot%202026-08-01%20001041.png>) |
+
+## Evidence
+
+| Compile output | Test output | Deployed address |
+| --- | --- | --- |
+| ![Compile output](<docs/evidence/Screenshot%202026-08-04%20000028.png>) | ![Test output](<docs/evidence/Screenshot%202026-08-04%20002653.png>) | ![Deployed address](<docs/evidence/Screenshot%202026-08-04%20002748.png>) |
 
 ## Privacy model
 
