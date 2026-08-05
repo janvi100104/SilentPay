@@ -1,98 +1,75 @@
+<div align="center">
+
 # SilentPay
 
+**Privacy-first payroll on the Midnight Network**
+
 [![CI](https://github.com/janvi100104/SilentPay/actions/workflows/ci.yml/badge.svg)](https://github.com/janvi100104/SilentPay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org/)
+[![Midnight](https://img.shields.io/badge/built%20on-Midnight-purple)](https://midnight.network/)
 
-SilentPay is a privacy-first payroll application built with Next.js and Midnight. It lets an employer manage employees, create payroll, and let eligible employees claim payments without publishing individual payment amounts on-chain.
+SilentPay lets employers run payroll and employees claim payments without publishing individual salary amounts on-chain. Zero-knowledge proofs verify each claim while keeping allocations confidential.
 
-- Repository: [github.com/janvi100104/SilentPay](https://github.com/janvi100104/SilentPay)
-- Live demo: [Watch on Google Drive](https://drive.google.com/file/d/1LjeJZlQXUr8PIbZ-9vMTtl3r6Yn7pFW9/view?usp=sharing)
-- Network: Midnight Preview network (deployed), with local devnet and Preprod configuration available
+[Live demo](https://drive.google.com/file/d/1LjeJZlQXUr8PIbZ-9vMTtl3r6Yn7pFW9/view?usp=sharing) · [Report bug](https://github.com/janvi100104/SilentPay/issues) · [Request feature](https://github.com/janvi100104/SilentPay/issues)
 
-## Product idea
+</div>
 
-SilentPay addresses the problem of transparent blockchain payroll: public payment records can expose salaries, bonuses, and contractor compensation forever. The product uses Midnight private witnesses and zero-knowledge proofs to make payroll execution verifiable while keeping each employee's allocation confidential. The longer-term product can support salaries, bonuses, contractor payments, revenue shares, vesting, and DAO contributor rewards with privacy as the default.
+---
 
-The full product proposal is in [`docs/01-product-requirements.md`](docs/01-product-requirements.md). It is currently a draft and still needs to be submitted for approval.
+## Why SilentPay?
 
-## Current functionality
+On a transparent blockchain, every payment is permanent and public. Salaries, bonuses, and contractor fees become visible to anyone. SilentPay solves this by running payroll on Midnight, where:
 
-- Next.js dashboard for companies, employees, payroll, claims, and history
-- PostgreSQL-backed application metadata through Prisma
-- Compact payroll contract with `createPayroll` and `claimPayment` circuits
-- `claimPayment` circuit wired end-to-end: allocation loaded from DB, ZK proof executed on-chain, result recorded
-- Midnight Preview network deployment (active)
-- Local Midnight devnet using Docker Compose
-- Lace wallet connect/disconnect support
-- Jest coverage for contract structure, validation, employee, payroll, and claim flows
+- Payroll creation and claim counts are publicly verifiable.
+- Individual payment amounts remain hidden.
+- Employees prove eligibility with a ZK circuit — no amount is disclosed on-chain.
 
-## UI screenshots
+## Features
 
-The current application UI includes the following views:
+- **Privacy-preserving payroll** — create payroll with private allocations; only metadata is public
+- **ZK claim flow** — `claimPayment` circuit proves eligibility without revealing amounts
+- **Wallet integration** — Lace wallet connect/disconnect on Midnight networks
+- **Full dashboard** — manage employees, create payrolls, view claims and history
+- **Multiple networks** — Preview, Preprod, and local Docker devnet
+- **42 automated tests** — contract, validation, service, and end-to-end coverage
 
-| Landing page | Dashboard |
-| --- | --- |
-| ![SilentPay landing page](<docs/screenshots/Screenshot%202026-08-01%20001109.png>) | ![SilentPay dashboard](<docs/screenshots/Screenshot%202026-08-01%20001133.png>) |
+## Screenshots
 
-| Employees | Payroll |
-| --- | --- |
-| ![Employee management](<docs/screenshots/Screenshot%202026-08-01%20001226.png>) | ![Payroll management](<docs/screenshots/Screenshot%202026-08-01%20001204.png>) |
+The application flow — from landing to payroll execution and employee claiming:
 
-| Claims | History |
-| --- | --- |
-| ![Payment claims](<docs/screenshots/Screenshot%202026-08-01%20001149.png>) | ![Payroll and claim history](<docs/screenshots/Screenshot%202026-08-01%20001041.png>) |
+| Hero | Add Employees |
+|------|---------------|
+| ![Hero](docs/screenshots/Hero.png) | ![Add Employees](<docs/screenshots/Add%20Employees.png>) |
 
-## Evidence
+| Employees | Create Payroll |
+|-----------|----------------|
+| ![Employees](docs/screenshots/Employees.png) | ![Create Payroll](<docs/screenshots/Create%20Payroll.png>) |
 
-| Compile output | Test output | Deployed address |
-| --- | --- | --- |
-| ![Compile output](<docs/evidence/Screenshot%202026-08-04%20000028.png>) | ![Test output](<docs/evidence/Screenshot%202026-08-04%20002653.png>) | ![Deployed address](<docs/evidence/Screenshot%202026-08-04%20002748.png>) |
+| Payroll | Employee Claim Tab |
+|---------|--------------------|
+| ![Payroll](docs/screenshots/Payroll.png) | ![Employee Claim Tab](<docs/screenshots/Employee%20Claim%20Tab.png>) |
 
-## Privacy model
+| Employee History | Employee Dashboard |
+|------------------|--------------------|
+| ![Employee History](<docs/screenshots/Employee%20History.png>) | ![Employee Dashboard](<docs/screenshots/Employee%20Dashboard.png>) |
 
-SilentPay separates public ledger state from private witness data. The privacy guarantee described here applies to the Midnight contract; application metadata in PostgreSQL must still be protected with normal database and application access controls.
+| Claims | Employer Dashboard |
+|--------|--------------------|
+| ![Claims](docs/screenshots/Claims.png) | ![Employer Dashboard](<docs/screenshots/Employer%20Dashboard.png>) |
 
-### Public state
+## Quick start
 
-The contract deliberately discloses:
+### Prerequisites
 
-- Payroll identifier, employer address, and payroll month
-- Number of employees in the payroll
-- Number of claims processed
-- The fact that a contract, transaction, and validity proof exist
+| Requirement | Version |
+|-------------|---------|
+| Node.js | 22+ |
+| PostgreSQL | 16+ |
+| Docker | with Compose v2 |
+| Compact compiler | `~/.local/bin/compact` |
 
-This public state lets an observer verify that a payroll was created and that claims were processed without publishing the payroll amounts.
-
-### Private witness
-
-The contract uses private witness callbacks for employee allocations:
-
-- `getAllocation(employeeAddress)` checks the caller's private allocation
-- `markClaimed(employeeAddress)` updates private claim state
-- Allocation amounts, eligibility details, and whether a particular address has a positive allocation are not written to public ledger fields
-
-The `claimPayment` circuit proves that an eligible allocation exists, marks it as claimed, and increments the public claim counter. It does not disclose the amount in the public ledger.
-
-### What an observer can and cannot learn
-
-| Observer can learn | Observer cannot learn from the contract |
-| --- | --- |
-| Payroll metadata listed above | An employee's salary or payment amount |
-| Public claim count and transaction/proof activity | The allocation of another employee |
-| Contract and wallet addresses that are intentionally disclosed | Private witness values or the complete payroll total |
-
-This model does not hide information that an employer, employee, wallet provider, or application administrator voluntarily reveals outside the contract. Never commit wallet seeds, private keys, `.env` files, or generated deployment state.
-
-## Setup and local usage
-
-### Requirements
-
-- Node.js 22 or newer
-- npm
-- Docker with Docker Compose v2
-- PostgreSQL 16 or another compatible PostgreSQL instance
-- Compact compiler CLI compatible with the generated contract artifacts
-
-### Install the application
+### Install and run
 
 ```bash
 git clone https://github.com/janvi100104/SilentPay.git
@@ -104,7 +81,10 @@ npx prisma db push
 npm run dev
 ```
 
-Open `http://localhost:3000` after the development server starts. Set `DATABASE_URL` in `.env.local` if PostgreSQL is not running at the default local connection. For a disposable local database, run:
+Open [http://localhost:3000](http://localhost:3000).
+
+<details>
+<summary>Quick database with Docker</summary>
 
 ```bash
 docker run --name silentpay-db \
@@ -114,116 +94,126 @@ docker run --name silentpay-db \
   -d postgres:16
 ```
 
-### Compile and deploy the Midnight contract
+Then set `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/silentpay` in `.env.local`.
 
-The Compact compiler must be installed (`~/.local/bin/compact`). Compile the payroll contract and deploy to the Preview network:
+</details>
+
+### Compile and deploy the contract
 
 ```bash
 compact compile contracts/payroll.compact contracts/managed/payroll
 npm run midnight:deploy
 ```
 
-The deployment command registers for DUST generation, waits for balance, and stores the contract address in `.midnight-state.json`. To deploy to a local devnet instead:
+<details>
+<summary>Deploy to local devnet instead</summary>
 
 ```bash
 docker compose up -d --wait
 npm run midnight:deploy -- undeployed
 ```
 
-After deployment, inspect the network and address with:
+</details>
 
-```bash
-npm run midnight:network
-npm run midnight:cli
-npm run midnight:check-balance
-```
-
-The local devnet uses a well-known genesis seed with pre-minted development funds. Never use that seed on Preview, Preprod, Mainnet, or any network holding real value.
-
-### Networks
-
-| Network | Purpose | Funding |
-| --- | --- | --- |
-| `preview` | Public Midnight Preview network (active deployment) | Use the [Preview faucet](https://faucet.preview.midnight.network/) |
-| `undeployed` | Local Docker devnet | Genesis wallet is pre-funded |
-| `preprod` | Public Midnight Preprod network | Use the configured Preprod faucet |
-
-Switch the active network with `npm run midnight:network -- preview` or `npm run midnight:network -- undeployed`. Public-network wallet seeds and deployment records are stored in `.midnight-state.json`; back up any seed that controls funds you care about.
-
-## Tests and verification
-
-Run the automated tests with:
+### Run tests
 
 ```bash
 npm test -- --runInBand
 ```
 
-**5 test suites, 42 tests passed.** The test suite covers:
+Or with coverage:
 
-- Contract structure and syntax validation
-- Zod schema validation for all API inputs
-- Employee service CRUD operations
-- Payroll service lifecycle and claim recording
-- Claim flow end-to-end (including `proofVerified` status tracking)
+```bash
+npm run test:coverage
+```
 
-The end-to-end check reconnects to the deployed contract and reads its on-chain state:
+End-to-end check against the live contract:
 
 ```bash
 npm run test:e2e
 ```
 
-Compile output confirms two contract circuits:
+## Deployed contracts
 
-```text
-Compiling 2 circuits:
-```
+| Network | Contract Address | Deployer Wallet Address |
+|---------|------------------|-------------------------|
+| Preview | `972fbdf9ad5adcb3bd363d6528cf68dadf960b2fc962e5f619bb94a452f5fd8a` | `mn_addr_preview1ts073zl6xyp9ragecxh79t97wqpsvu4pzddh9x4l6dg9rggd38cselcd6v` |
+| Local devnet | `57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b` | `mn_addr_undeployed1h3ssm5ru2t6eqy4g3she78zlxn96e36ms6pq996aduvmateh9p9sk96u7s` |
 
-The circuits are `createPayroll` and `claimPayment`. The `claimPayment` circuit is wired from the frontend API route through to the on-chain contract — employee allocations are loaded from the database, fed into the contract witnesses, and the ZK proof is executed on-chain.
+## Demo video
 
-The UI screenshots above are included in `docs/screenshots/`. Screenshots of the compile output, test output, and deployed address are in `docs/evidence/` — do not use fabricated addresses or output.
+[![Watch the demo](https://img.shields.io/badge/Watch-Demo-red)](https://drive.google.com/file/d/1LjeJZlQXUr8PIbZ-9vMTtl3r6Yn7pFW9/view?usp=sharing)
 
-### Deployed contract addresses
+[Full demo video on Google Drive](https://drive.google.com/file/d/1LjeJZlQXUr8PIbZ-9vMTtl3r6Yn7pFW9/view?usp=sharing)
 
-| Network | Address |
-| --- | --- |
-| Preview (active) | `972fbdf9ad5adcb3bd363d6528cf68dadf960b2fc962e5f619bb94a452f5fd8a` |
-| Local devnet | `57f93e63fa0a26312da02aa05110b9f2add249322c81933428a15d89677f617b` |
+## Evidence
 
-## Available scripts
+| Compile output | Test output | Deployed address |
+|----------------|-------------|------------------|
+| ![Compile output](<docs/evidence/Screenshot%202026-08-04%20000028.png>) | ![Test output](<docs/evidence/Screenshot%202026-08-04%20002653.png>) | ![Deployed address](<docs/evidence/Screenshot%202026-08-04%20002748.png>) |
 
-| Script | Description |
-| --- | --- |
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Build the Next.js application |
-| `npm run compile` | Compile `contracts/payroll.compact` |
-| `npm run midnight:deploy` | Deploy the compiled payroll contract to the active network |
-| `npm run midnight:cli` | Inspect status, balance, deployment, and network state |
-| `npm run midnight:network` | Show or switch the active Midnight network |
-| `npm run midnight:check-balance` | Print the wallet's tNIGHT and DUST balances |
-| `npm run test` | Run Jest tests |
-| `npm run test:e2e` | End-to-end check: reconnect to deployed contract, read on-chain state |
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the development server |
+| `npm run build` | Production build |
+| `npm run compile` | Compile the Compact contract |
+| `npm run midnight:deploy` | Deploy to the active Midnight network |
+| `npm run midnight:network` | Show or switch the active network |
+| `npm run midnight:check-balance` | Print tNIGHT and DUST balances |
+| `npm run midnight:cli` | Inspect deployment and network state |
+| `npm run test` | Run all tests |
+| `npm run test:coverage` | Tests with coverage report |
+| `npm run test:e2e` | End-to-end contract verification |
 | `npm run lint` | Run ESLint |
-| `npm run clean` | Remove generated contract and local Midnight state |
+| `npm run clean` | Remove generated artifacts |
 
-## Project structure
+## Architecture
 
-```text
-contracts/payroll.compact           Compact payroll contract (createPayroll + claimPayment)
-contracts/managed/payroll/         Compiled contract artifacts (JS, keys, zkir)
-src/app/                           Next.js pages and API routes
-src/app/api/claim/                 Claim API — wires claimPayment circuit with DB allocations
-src/app/api/payroll/               Payroll API — deploys contract with private allocations
-src/features/                      Employee, payroll, and claim UI components
-src/services/                      Application services (employee, payroll, midnight)
-src/midnight/                      Network config, wallet, deploy, and CLI scripts
-src/__tests__/                     Contract and validation tests
-src/services/__tests__/            Service-level tests (claim flow, payroll, employee)
-docs/                              Product, architecture, schema, and implementation docs
-docs/screenshots/                  UI screenshots
-scripts/e2e-check.ts               End-to-end contract verification script
-docker-compose.yml                 Local Midnight node, indexer, and proof server
 ```
+contracts/
+  payroll.compact               # Compact payroll contract (createPayroll + claimPayment)
+  managed/payroll/              # Compiled artifacts (JS, keys, zkir)
+src/
+  app/                          # Next.js pages and API routes
+    api/claim/                  # Claim API — wires claimPayment circuit
+    api/payroll/                # Payroll API — deploys contract
+  features/                     # UI components (employee, payroll, claim)
+  services/                     # Application services
+  midnight/                     # Network config, wallet, deploy scripts
+  __tests__/                    # Contract and validation tests
+docs/                           # Product, architecture, and schema docs
+scripts/e2e-check.ts            # End-to-end verification
+docker-compose.yml              # Local Midnight node, indexer, proof server
+```
+
+## Privacy model
+
+SilentPay separates public ledger state from private witness data.
+
+**Public:** payroll ID, employer address, month, employee count, claim count, contract addresses.
+
+**Private:** allocation amounts, eligibility details, whether a specific address has a positive allocation.
+
+The `claimPayment` circuit proves an eligible allocation exists, marks it claimed, and increments the public counter — without disclosing the amount.
+
+| An observer can learn | An observer cannot learn |
+|-----------------------|--------------------------|
+| Payroll metadata | Individual salary or payment amount |
+| Claim count and proof activity | Another employee's allocation |
+| Publicly disclosed addresses | Private witness values |
+
+> This model does not hide information voluntarily revealed outside the contract. Never commit wallet seeds, private keys, `.env` files, or deployment state.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Security
+
+To report vulnerabilities, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
