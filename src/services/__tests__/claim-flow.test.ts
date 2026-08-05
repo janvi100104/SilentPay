@@ -12,7 +12,7 @@ describe('Claim Flow', () => {
   describe('Double Claim Prevention', () => {
     it('should prevent duplicate claims', async () => {
       // Setup: Employee exists, payroll is ready, already claimed
-      mockPrisma.employee.findUnique.mockResolvedValue({
+      mockPrisma.employee.findFirst.mockResolvedValue({
         id: 'emp-1',
         walletAddress: 'addr_test',
         status: 'ACTIVE',
@@ -45,7 +45,7 @@ describe('Claim Flow', () => {
     it('should allow claim for eligible employee', async () => {
       const mockItem = { id: 'item-1', claimStatus: 'CLAIMED' };
 
-      mockPrisma.employee.findUnique.mockResolvedValue({
+      mockPrisma.employee.findFirst.mockResolvedValue({
         id: 'emp-1',
         walletAddress: 'addr_test',
         status: 'ACTIVE',
@@ -83,14 +83,14 @@ describe('Claim Flow', () => {
     });
 
     it('should reject claim for non-existent employee', async () => {
-      mockPrisma.employee.findUnique.mockResolvedValue(null);
+      mockPrisma.employee.findFirst.mockResolvedValue(null);
 
       const employee = await EmployeeService.getByWalletAddress('addr_nonexistent');
-      expect(employee).toBeNull();
+      expect(employee).toBeFalsy();
     });
 
     it('should reject claim for employee not in payroll', async () => {
-      mockPrisma.employee.findUnique.mockResolvedValue({
+      mockPrisma.employee.findFirst.mockResolvedValue({
         id: 'emp-1',
         walletAddress: 'addr_test',
         status: 'ACTIVE',

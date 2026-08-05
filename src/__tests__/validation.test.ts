@@ -9,7 +9,7 @@ describe('Validation Schemas', () => {
         const validData = {
           companyId: '00000000-0000-0000-0000-000000000001',
           fullName: 'John Doe',
-          walletAddress: 'addr_test_123',
+          walletAddress: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           email: 'john@example.com',
           designation: 'Engineer',
           department: 'Engineering',
@@ -23,7 +23,7 @@ describe('Validation Schemas', () => {
         const invalidData = {
           companyId: '00000000-0000-0000-0000-000000000001',
           fullName: '',
-          walletAddress: 'addr_test_123',
+          walletAddress: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
         };
 
         const result = createEmployeeSchema.safeParse(invalidData);
@@ -34,7 +34,7 @@ describe('Validation Schemas', () => {
         const invalidData = {
           companyId: 'not-a-uuid',
           fullName: 'John Doe',
-          walletAddress: 'addr_test_123',
+          walletAddress: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
         };
 
         const result = createEmployeeSchema.safeParse(invalidData);
@@ -45,7 +45,7 @@ describe('Validation Schemas', () => {
         const validData = {
           companyId: '00000000-0000-0000-0000-000000000001',
           fullName: 'John Doe',
-          walletAddress: 'addr_test_123',
+          walletAddress: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           email: '',
           designation: '',
           department: '',
@@ -84,7 +84,7 @@ describe('Validation Schemas', () => {
           companyId: '00000000-0000-0000-0000-000000000001',
           title: 'July Payroll',
           payrollMonth: '2026-07',
-          createdBy: 'addr_employer',
+          createdBy: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           employeeIds: [
             '00000000-0000-0000-0000-000000000002',
             '00000000-0000-0000-0000-000000000003',
@@ -100,7 +100,7 @@ describe('Validation Schemas', () => {
           companyId: '00000000-0000-0000-0000-000000000001',
           title: 'July Payroll',
           payrollMonth: '2026-07',
-          createdBy: 'addr_employer',
+          createdBy: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           employeeIds: [],
         };
 
@@ -113,7 +113,7 @@ describe('Validation Schemas', () => {
           companyId: '00000000-0000-0000-0000-000000000001',
           title: '',
           payrollMonth: '2026-07',
-          createdBy: 'addr_employer',
+          createdBy: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           employeeIds: ['00000000-0000-0000-0000-000000000002'],
         };
 
@@ -127,7 +127,7 @@ describe('Validation Schemas', () => {
     describe('claimPaymentSchema', () => {
       it('should validate valid claim data', () => {
         const validData = {
-          walletAddress: 'addr_test_123',
+          walletAddress: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           payrollId: '00000000-0000-0000-0000-000000000001',
         };
 
@@ -147,7 +147,7 @@ describe('Validation Schemas', () => {
 
       it('should reject invalid payroll UUID', () => {
         const invalidData = {
-          walletAddress: 'addr_test_123',
+          walletAddress: 'mn_addr_preview1qqqqqqqqqqqqqqqqqqqqqqqqqqqq',
           payrollId: 'not-a-uuid',
         };
 

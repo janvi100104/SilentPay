@@ -89,7 +89,9 @@ describe('PayrollService', () => {
       const mockPayroll = { id: 'pay-1', companyId: 'comp-1' };
 
       mockPrisma.payrollItem.update.mockResolvedValue(mockItem);
-      mockPrisma.payroll.update.mockResolvedValue({});
+      mockPrisma.payroll.update
+        .mockResolvedValueOnce({ id: 'pay-1', employeeCount: 5, claimedCount: 2 })
+        .mockResolvedValueOnce({});
       mockPrisma.employee.update.mockResolvedValue({});
       mockPrisma.payroll.findUnique.mockResolvedValue(mockPayroll);
       mockPrisma.auditLog.create.mockResolvedValue({});
@@ -101,6 +103,11 @@ describe('PayrollService', () => {
       expect(mockPrisma.payroll.update).toHaveBeenCalledWith({
         where: { id: 'pay-1' },
         data: { claimedCount: { increment: 1 } },
+        select: {
+          id: true,
+          employeeCount: true,
+          claimedCount: true,
+        },
       });
     });
   });
